@@ -1,2 +1,8 @@
 #!/usr/bin/env node
-// CloudScope MCP entry point — will be implemented in Task 8
+
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { createServer } from './server.js';
+
+const server = createServer();
+const transport = new StdioServerTransport();
+await server.connect(transport);
