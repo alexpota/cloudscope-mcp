@@ -15,7 +15,8 @@ describe('handleListRecommendations', () => {
         description: 'Right-size VM instance-xyz from D4 to D2',
         savingsAmount: 150.0,
         savingsCurrency: 'USD',
-        resourceId: '/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1',
+        resourceId:
+          '/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1',
       },
       {
         id: 'rec-2',
@@ -24,13 +25,14 @@ describe('handleListRecommendations', () => {
         description: 'Delete unused public IP address',
         savingsAmount: 3.65,
         savingsCurrency: 'USD',
-        resourceId: '/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/publicIPAddresses/ip1',
+        resourceId:
+          '/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Network/publicIPAddresses/ip1',
       },
     ]);
 
     const result = await handleListRecommendations(
       { provider: 'azure', category: 'all' },
-      { azure: mockAzureClient as any, gcp: null },
+      { azure: mockAzureClient as any },
     );
 
     const text = result.content[0].text;
@@ -45,7 +47,7 @@ describe('handleListRecommendations', () => {
 
     const result = await handleListRecommendations(
       { provider: 'azure', category: 'all' },
-      { azure: mockAzureClient as any, gcp: null },
+      { azure: mockAzureClient as any },
     );
 
     expect(result.content[0].text).toContain('No cost optimization recommendations');
@@ -54,46 +56,22 @@ describe('handleListRecommendations', () => {
   it('returns error when azure is not configured', async () => {
     const result = await handleListRecommendations(
       { provider: 'azure', category: 'all' },
-      { azure: null, gcp: null },
+      { azure: null },
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('AZURE is not configured');
-  });
-
-  it('returns error for gcp provider', async () => {
-    const result = await handleListRecommendations(
-      { provider: 'gcp', category: 'all' },
-      { azure: null, gcp: null },
-    );
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('GCP is not configured');
+    expect(result.content[0].text).toContain('not configured');
   });
 
   it('sorts recommendations by savings amount descending', async () => {
     mockAzureClient.getRecommendations.mockResolvedValueOnce([
-      {
-        id: 'rec-low',
-        category: 'Cost',
-        impact: 'Low',
-        description: 'Small saving',
-        savingsAmount: 5.0,
-        savingsCurrency: 'USD',
-      },
-      {
-        id: 'rec-high',
-        category: 'Cost',
-        impact: 'High',
-        description: 'Big saving',
-        savingsAmount: 500.0,
-        savingsCurrency: 'USD',
-      },
+      { id: 'low', category: 'Cost', impact: 'Low', description: 'Small saving', savingsAmount: 5.0, savingsCurrency: 'USD' },
+      { id: 'high', category: 'Cost', impact: 'High', description: 'Big saving', savingsAmount: 500.0, savingsCurrency: 'USD' },
     ]);
 
     const result = await handleListRecommendations(
       { provider: 'azure', category: 'all' },
-      { azure: mockAzureClient as any, gcp: null },
+      { azure: mockAzureClient as any },
     );
 
     const text = result.content[0].text;
@@ -104,17 +82,12 @@ describe('handleListRecommendations', () => {
 
   it('handles recommendations without savings amount', async () => {
     mockAzureClient.getRecommendations.mockResolvedValueOnce([
-      {
-        id: 'rec-no-savings',
-        category: 'Cost',
-        impact: 'Medium',
-        description: 'Review unused resource',
-      },
+      { id: 'no-savings', category: 'Cost', impact: 'Medium', description: 'Review unused resource' },
     ]);
 
     const result = await handleListRecommendations(
       { provider: 'azure', category: 'all' },
-      { azure: mockAzureClient as any, gcp: null },
+      { azure: mockAzureClient as any },
     );
 
     const text = result.content[0].text;

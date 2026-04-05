@@ -24,10 +24,7 @@ export function formatCostTable(options: CostTableOptions): string {
     const top = sorted.slice(0, 10);
     const tail = sorted.slice(10);
     const tailCost = tail.reduce((sum, r) => sum + r.cost, 0);
-    displayRows = [
-      ...top,
-      { name: `Other (${tail.length} services)`, cost: tailCost },
-    ];
+    displayRows = [...top, { name: `Other (${tail.length} services)`, cost: tailCost }];
   } else {
     displayRows = sorted;
   }
@@ -35,10 +32,7 @@ export function formatCostTable(options: CostTableOptions): string {
   const total = sorted.reduce((sum, r) => sum + r.cost, 0);
 
   // Calculate column widths
-  const nameWidth = Math.max(
-    groupLabel.length,
-    ...displayRows.map((r) => r.name.length),
-  );
+  const nameWidth = Math.max(groupLabel.length, ...displayRows.map((r) => r.name.length));
   const costHeader = `Cost (${currency})`;
   const costWidth = Math.max(
     costHeader.length,
@@ -73,9 +67,7 @@ export function formatCostTable(options: CostTableOptions): string {
   if (periodDays) {
     const dailyAvg = total / periodDays;
     lines.push('');
-    lines.push(
-      `Period: ${periodDays} days | Daily average: ${formatMoney(dailyAvg, currency)}`,
-    );
+    lines.push(`Period: ${periodDays} days | Daily average: ${formatMoney(dailyAvg, currency)}`);
   }
 
   return lines.join('\n');
@@ -84,12 +76,4 @@ export function formatCostTable(options: CostTableOptions): string {
 export function formatMoney(amount: number, currency: string): string {
   const symbol = currency === 'USD' ? '$' : currency;
   return `${symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-export function formatChange(current: number, previous: number): string {
-  const diff = current - previous;
-  const pctChange =
-    previous > 0 ? ((diff / previous) * 100).toFixed(1) : 'N/A';
-  const direction = diff > 0 ? '+' : '';
-  return `${direction}${formatMoney(diff, 'USD')} (${direction}${pctChange}%)`;
 }

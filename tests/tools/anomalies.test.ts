@@ -7,7 +7,6 @@ const mockAzureClient = {
 
 describe('handleDetectAnomalies', () => {
   it('detects services with cost increases above threshold', async () => {
-    // Current period
     mockAzureClient.queryCosts.mockResolvedValueOnce({
       rows: [
         { serviceName: 'Virtual Machines', cost: 500, currency: 'USD' },
@@ -15,7 +14,6 @@ describe('handleDetectAnomalies', () => {
       ],
       currency: 'USD',
     });
-    // Previous period
     mockAzureClient.queryCosts.mockResolvedValueOnce({
       rows: [
         { serviceName: 'Virtual Machines', cost: 300, currency: 'USD' },
@@ -26,7 +24,7 @@ describe('handleDetectAnomalies', () => {
 
     const result = await handleDetectAnomalies(
       { provider: 'azure', days: 7, threshold: 20 },
-      { azure: mockAzureClient as any, gcp: null },
+      { azure: mockAzureClient as any },
     );
 
     const text = result.content[0].text;
@@ -47,7 +45,7 @@ describe('handleDetectAnomalies', () => {
 
     const result = await handleDetectAnomalies(
       { provider: 'azure', days: 7, threshold: 20 },
-      { azure: mockAzureClient as any, gcp: null },
+      { azure: mockAzureClient as any },
     );
 
     expect(result.content[0].text).toContain('No anomalies');

@@ -5,27 +5,26 @@ export interface AzureConfig {
   subscriptionId: string;
 }
 
-export interface GcpConfig {
-  projectId: string;
-  billingTable: string;
-}
-
 export interface AppConfig {
   azure: AzureConfig | null;
-  gcp: GcpConfig | null;
   cacheTtlSeconds: number;
   logLevel: string;
 }
 
 export function getConfig(): AppConfig {
   const azure = getAzureConfig();
-  const gcp = getGcpConfig();
   return {
     azure,
-    gcp,
-    cacheTtlSeconds: parseInt(process.env.CACHE_TTL_SECONDS || '300', 10),
+    cacheTtlSeconds: parseCacheTtl(process.env.CACHE_TTL_SECONDS),
     logLevel: process.env.LOG_LEVEL || 'info',
   };
+}
+
+function parseCacheTtl(value: string | undefined): number {
+  const DEFAULT_TTL = 300;
+  if (!value) return DEFAULT_TTL;
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_TTL;
 }
 
 function getAzureConfig(): AzureConfig | null {
@@ -42,13 +41,4 @@ function getAzureConfig(): AzureConfig | null {
     clientSecret: clientSecret || '',
     subscriptionId,
   };
-}
-
-function getGcpConfig(): GcpConfig | null {
-  const projectId = process.env.GCP_PROJECT_ID;
-  const billingTable = process.env.GCP_BILLING_TABLE;
-
-  if (!projectId || !billingTable) return null;
-
-  return { projectId, billingTable };
 }

@@ -22,7 +22,7 @@ describe('handleGetCostSummary', () => {
         end_date: '2026-03-31',
         group_by: 'service',
       },
-      { azure: mockAzureClient as any, gcp: null },
+      { azure: mockAzureClient as any },
     );
 
     expect(result.content[0].type).toBe('text');
@@ -30,21 +30,6 @@ describe('handleGetCostSummary', () => {
     expect(text).toContain('Virtual Machines');
     expect(text).toContain('$4,231.50');
     expect(text).toContain('TOTAL');
-  });
-
-  it('returns error when provider not configured', async () => {
-    const result = await handleGetCostSummary(
-      {
-        provider: 'gcp',
-        start_date: '2026-03-01',
-        end_date: '2026-03-31',
-        group_by: 'service',
-      },
-      { azure: null, gcp: null },
-    );
-
-    expect(result.content[0].text).toContain('not configured');
-    expect(result.isError).toBe(true);
   });
 
   it('returns error when Azure is not configured', async () => {
@@ -55,7 +40,7 @@ describe('handleGetCostSummary', () => {
         end_date: '2026-03-31',
         group_by: 'service',
       },
-      { azure: null, gcp: null },
+      { azure: null },
     );
 
     expect(result.content[0].text).toContain('not configured');
@@ -64,9 +49,7 @@ describe('handleGetCostSummary', () => {
 
   it('maps group_by to correct Azure grouping', async () => {
     mockAzureClient.queryCosts.mockResolvedValueOnce({
-      rows: [
-        { serviceName: 'my-rg', cost: 500, currency: 'USD' },
-      ],
+      rows: [{ serviceName: 'my-rg', cost: 500, currency: 'USD' }],
       currency: 'USD',
     });
 
@@ -77,7 +60,7 @@ describe('handleGetCostSummary', () => {
         end_date: '2026-03-31',
         group_by: 'resource_group',
       },
-      { azure: mockAzureClient as any, gcp: null },
+      { azure: mockAzureClient as any },
     );
 
     expect(mockAzureClient.queryCosts).toHaveBeenCalledWith(
@@ -89,9 +72,7 @@ describe('handleGetCostSummary', () => {
   });
 
   it('handles Azure API errors gracefully', async () => {
-    mockAzureClient.queryCosts.mockRejectedValueOnce(
-      new Error('Network timeout'),
-    );
+    mockAzureClient.queryCosts.mockRejectedValueOnce(new Error('Network timeout'));
 
     const result = await handleGetCostSummary(
       {
@@ -100,7 +81,7 @@ describe('handleGetCostSummary', () => {
         end_date: '2026-03-31',
         group_by: 'service',
       },
-      { azure: mockAzureClient as any, gcp: null },
+      { azure: mockAzureClient as any },
     );
 
     expect(result.content[0].text).toContain('Network timeout');
@@ -109,9 +90,7 @@ describe('handleGetCostSummary', () => {
 
   it('calculates period days correctly', async () => {
     mockAzureClient.queryCosts.mockResolvedValueOnce({
-      rows: [
-        { serviceName: 'VM', cost: 100, currency: 'USD' },
-      ],
+      rows: [{ serviceName: 'VM', cost: 100, currency: 'USD' }],
       currency: 'USD',
     });
 
@@ -122,7 +101,7 @@ describe('handleGetCostSummary', () => {
         end_date: '2026-03-08',
         group_by: 'service',
       },
-      { azure: mockAzureClient as any, gcp: null },
+      { azure: mockAzureClient as any },
     );
 
     expect(result.content[0].text).toContain('7 days');
