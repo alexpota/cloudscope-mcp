@@ -6,19 +6,17 @@ import { Cache } from './utils/cache.js';
 import { handleGetCostSummary, type Providers } from './tools/cost-summary.js';
 import { handleDetectAnomalies } from './tools/anomalies.js';
 import { handleListRecommendations } from './tools/recommendations.js';
+import { handleGetCostForecast } from './tools/forecast.js';
+import type { ToolResult } from './tools/types.js';
 
 export function createServer(): McpServer {
   const config = getConfig();
 
   const providers: Providers = {
     azure: config.azure ? new AzureCostClient(config.azure) : null,
-    gcp: null,
   };
 
-  const cache = new Cache<{
-    content: Array<{ type: 'text'; text: string }>;
-    isError?: boolean;
-  }>(config.cacheTtlSeconds);
+  const cache = new Cache<ToolResult>(config.cacheTtlSeconds);
 
   const server = new McpServer({
     name: 'cloudscope-mcp',
@@ -33,7 +31,7 @@ export function createServer(): McpServer {
       description:
         'Get cloud spending breakdown by service, resource group, or tag for any date range',
       inputSchema: {
-        provider: z.enum(['azure', 'gcp']).describe('Cloud provider to query'),
+        provider: z.literal('azure').describe('Cloud provider to query'),
         start_date: z.string().describe('Start date (YYYY-MM-DD)'),
         end_date: z.string().describe('End date (YYYY-MM-DD)'),
         group_by: z
@@ -58,18 +56,11 @@ export function createServer(): McpServer {
     'detect_anomalies',
     {
       title: 'Detect Cost Anomalies',
-      description:
-        'Find spending spikes by comparing current period to previous period',
+      description: 'Find spending spikes by comparing current period to previous period',
       inputSchema: {
-        provider: z.enum(['azure', 'gcp']).describe('Cloud provider to query'),
-        days: z
-          .number()
-          .default(7)
-          .describe('Compare last N days to N days before that'),
-        threshold: z
-          .number()
-          .default(20)
-          .describe('Percentage increase to flag as anomaly'),
+        provider: z.literal('azure').describe('Cloud provider to query'),
+        days: z.number().default(7).describe('Compare last N days to N days before that'),
+        threshold: z.number().default(20).describe('Percentage increase to flag as anomaly'),
       },
     },
     async (input) => {
@@ -88,10 +79,9 @@ export function createServer(): McpServer {
     'list_recommendations',
     {
       title: 'Cost Optimization Recommendations',
-      description:
-        'Get cost optimization recommendations from the cloud provider',
+      description: 'Get cost optimization recommendations from the cloud provider',
       inputSchema: {
-        provider: z.enum(['azure', 'gcp']).describe('Cloud provider to query'),
+        provider: z.literal('azure').describe('Cloud provider to query'),
         category: z
           .enum(['all', 'compute', 'storage', 'networking'])
           .default('all')
@@ -104,6 +94,28 @@ export function createServer(): McpServer {
       if (cached) return cached;
 
       const result = await handleListRecommendations(input, providers);
+      if (!result.isError) cache.set(cacheKey, result);
+      return result;
+    },
+  );
+
+  // Tool 4: get_cost_forecast
+  server.registerTool(
+    'get_cost_forecast',
+    {
+      title: 'Cost Forecast',
+      description: 'Predict cloud spending for the next N days using the forecast API',
+      inputSchema: {
+        provider: z.literal('azure').describe('Cloud provider to query'),
+        days: z.number().default(30).describe('Number of days to forecast'),
+      },
+    },
+    async (input) => {
+      const cacheKey = `forecast:${JSON.stringify(input)}`;
+      const cached = cache.get(cacheKey);
+      if (cached) return cached;
+
+      const result = await handleGetCostForecast(input, providers);
       if (!result.isError) cache.set(cacheKey, result);
       return result;
     },

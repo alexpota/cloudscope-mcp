@@ -8,12 +8,16 @@ vi.mock('@azure/identity', () => ({
 }));
 
 const mockUsage = vi.fn();
+const mockForecastUsage = vi.fn();
 const mockRecommendationsList = vi.fn();
 
 vi.mock('@azure/arm-costmanagement', () => ({
   CostManagementClient: vi.fn().mockImplementation(() => ({
     query: {
       usage: mockUsage,
+    },
+    forecast: {
+      usage: mockForecastUsage,
     },
   })),
 }));
@@ -35,6 +39,7 @@ describe('AzureCostClient', () => {
 
     // Reset mock defaults
     mockUsage.mockResolvedValue({ columns: [], rows: [] });
+    mockForecastUsage.mockResolvedValue({ columns: [], rows: [] });
     mockRecommendationsList.mockReturnValue({
       [Symbol.asyncIterator]: async function* () {},
     });
@@ -358,6 +363,81 @@ describe('AzureCostClient', () => {
 
       expect(recs).toHaveLength(1);
       expect(recs[0].description).toBe('No description');
+    });
+  });
+
+  describe('forecastCosts', () => {
+    it('calls forecast.usage with correct parameters', async () => {
+      mockForecastUsage.mockResolvedValueOnce({
+        columns: [
+          { name: 'Cost', type: 'Number' },
+          { name: 'UsageDate', type: 'Number' },
+          { name: 'CostStatus', type: 'String' },
+          { name: 'Currency', type: 'String' },
+        ],
+        rows: [
+          [100.0, 20260401, 'Actual', 'USD'],
+          [95.0, 20260402, 'Forecast', 'USD'],
+        ],
+      });
+
+      await client.forecastCosts('2026-04-01', '2026-04-30');
+
+      expect(mockForecastUsage).toHaveBeenCalledWith(
+        '/subscriptions/sub-abc',
+        expect.objectContaining({
+          type: 'ActualCost',
+          timeframe: 'Custom',
+          includeActualCost: true,
+          dataset: expect.objectContaining({
+            granularity: 'Daily',
+          }),
+        }),
+      );
+    });
+
+    it('returns parsed forecast rows with cost type', async () => {
+      mockForecastUsage.mockResolvedValueOnce({
+        columns: [
+          { name: 'Cost', type: 'Number' },
+          { name: 'UsageDate', type: 'Number' },
+          { name: 'CostStatus', type: 'String' },
+          { name: 'Currency', type: 'String' },
+        ],
+        rows: [
+          [100.0, 20260401, 'Actual', 'USD'],
+          [95.0, 20260402, 'Forecast', 'USD'],
+        ],
+      });
+
+      const result = await client.forecastCosts('2026-04-01', '2026-04-30');
+
+      expect(result.rows).toHaveLength(2);
+      expect(result.rows[0]).toEqual({
+        date: '20260401',
+        cost: 100.0,
+        costType: 'Actual',
+        currency: 'USD',
+      });
+      expect(result.rows[1]).toEqual({
+        date: '20260402',
+        cost: 95.0,
+        costType: 'Forecast',
+        currency: 'USD',
+      });
+      expect(result.currency).toBe('USD');
+    });
+
+    it('handles empty forecast result', async () => {
+      mockForecastUsage.mockResolvedValueOnce({
+        columns: [],
+        rows: [],
+      });
+
+      const result = await client.forecastCosts('2026-04-01', '2026-04-30');
+
+      expect(result.rows).toHaveLength(0);
+      expect(result.currency).toBe('USD');
     });
   });
 });

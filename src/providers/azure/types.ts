@@ -20,3 +20,15 @@ export interface AzureRecommendation {
 }
 
 export type CostGrouping = 'ServiceName' | 'ResourceGroup' | 'ResourceLocation';
+
+export interface AzureForecastRow {
+  date: string;
+  cost: number;
+  costType: 'Actual' | 'Forecast';
+  currency: string;
+}
+
+export interface AzureForecastResult {
+  rows: AzureForecastRow[];
+  currency: string;
+}
