@@ -1,0 +1,363 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import type { AzureCostClient as AzureCostClientType } from '../../../src/providers/azure/client.js';
+
+// Mock Azure SDK modules before importing the client
+vi.mock('@azure/identity', () => ({
+  ClientSecretCredential: vi.fn(),
+  DefaultAzureCredential: vi.fn(),
+}));
+
+const mockUsage = vi.fn();
+const mockRecommendationsList = vi.fn();
+
+vi.mock('@azure/arm-costmanagement', () => ({
+  CostManagementClient: vi.fn().mockImplementation(() => ({
+    query: {
+      usage: mockUsage,
+    },
+  })),
+}));
+
+vi.mock('@azure/arm-advisor', () => ({
+  AdvisorManagementClient: vi.fn().mockImplementation(() => ({
+    recommendations: {
+      list: mockRecommendationsList,
+    },
+  })),
+}));
+
+describe('AzureCostClient', () => {
+  let AzureCostClient: typeof AzureCostClientType;
+  let client: AzureCostClientType;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+
+    // Reset mock defaults
+    mockUsage.mockResolvedValue({ columns: [], rows: [] });
+    mockRecommendationsList.mockReturnValue({
+      [Symbol.asyncIterator]: async function* () {},
+    });
+
+    // Dynamic import to get fresh module after mocks are set up
+    const mod = await import('../../../src/providers/azure/client.js');
+    AzureCostClient = mod.AzureCostClient;
+
+    client = new AzureCostClient({
+      tenantId: 'tenant-123',
+      clientId: 'client-456',
+      clientSecret: 'secret-789',
+      subscriptionId: 'sub-abc',
+    });
+  });
+
+  describe('constructor', () => {
+    it('creates client with service principal when all creds provided', async () => {
+      const { ClientSecretCredential } = await import('@azure/identity');
+      expect(ClientSecretCredential).toHaveBeenCalledWith(
+        'tenant-123',
+        'client-456',
+        'secret-789',
+      );
+    });
+
+    it('falls back to DefaultAzureCredential when creds are missing', async () => {
+      const { DefaultAzureCredential } = await import('@azure/identity');
+
+      new AzureCostClient({
+        tenantId: '',
+        clientId: '',
+        clientSecret: '',
+        subscriptionId: 'sub-abc',
+      });
+
+      expect(DefaultAzureCredential).toHaveBeenCalled();
+    });
+
+    it('exposes scope as /subscriptions/{id}', () => {
+      expect(client.scope).toBe('/subscriptions/sub-abc');
+    });
+  });
+
+  describe('queryCosts', () => {
+    it('calls query.usage with correct parameters', async () => {
+      mockUsage.mockResolvedValueOnce({
+        columns: [
+          { name: 'Cost', type: 'Number' },
+          { name: 'ServiceName', type: 'String' },
+          { name: 'Currency', type: 'String' },
+        ],
+        rows: [[4231.5, 'Virtual Machines', 'USD']],
+      });
+
+      await client.queryCosts('2026-03-01', '2026-03-31', 'ServiceName');
+
+      expect(mockUsage).toHaveBeenCalledWith(
+        '/subscriptions/sub-abc',
+        expect.objectContaining({
+          type: 'ActualCost',
+          timeframe: 'Custom',
+          timePeriod: {
+            from: new Date('2026-03-01'),
+            to: new Date('2026-03-31'),
+          },
+          dataset: expect.objectContaining({
+            granularity: 'None',
+            grouping: [{ type: 'Dimension', name: 'ServiceName' }],
+          }),
+        }),
+      );
+    });
+
+    it('returns parsed cost rows sorted from API response', async () => {
+      mockUsage.mockResolvedValueOnce({
+        columns: [
+          { name: 'Cost', type: 'Number' },
+          { name: 'ServiceName', type: 'String' },
+          { name: 'Currency', type: 'String' },
+        ],
+        rows: [
+          [4231.5, 'Virtual Machines', 'USD'],
+          [2100.0, 'Azure SQL Database', 'USD'],
+          [890.0, 'Azure Kubernetes Service', 'USD'],
+        ],
+      });
+
+      const result = await client.queryCosts(
+        '2026-03-01',
+        '2026-03-31',
+        'ServiceName',
+      );
+
+      expect(result.rows).toHaveLength(3);
+      expect(result.rows[0]).toEqual({
+        serviceName: 'Virtual Machines',
+        cost: 4231.5,
+        currency: 'USD',
+      });
+      expect(result.rows[1]).toEqual({
+        serviceName: 'Azure SQL Database',
+        cost: 2100.0,
+        currency: 'USD',
+      });
+      expect(result.rows[2]).toEqual({
+        serviceName: 'Azure Kubernetes Service',
+        cost: 890.0,
+        currency: 'USD',
+      });
+      expect(result.currency).toBe('USD');
+    });
+
+    it('handles empty result from API', async () => {
+      mockUsage.mockResolvedValueOnce({
+        columns: [
+          { name: 'Cost', type: 'Number' },
+          { name: 'ServiceName', type: 'String' },
+          { name: 'Currency', type: 'String' },
+        ],
+        rows: [],
+      });
+
+      const result = await client.queryCosts(
+        '2026-03-01',
+        '2026-03-31',
+        'ServiceName',
+      );
+
+      expect(result.rows).toHaveLength(0);
+      expect(result.currency).toBe('USD');
+    });
+
+    it('handles missing columns and rows gracefully', async () => {
+      mockUsage.mockResolvedValueOnce({});
+
+      const result = await client.queryCosts(
+        '2026-03-01',
+        '2026-03-31',
+        'ServiceName',
+      );
+
+      expect(result.rows).toHaveLength(0);
+      expect(result.currency).toBe('USD');
+    });
+
+    it('supports ResourceGroup grouping', async () => {
+      mockUsage.mockResolvedValueOnce({
+        columns: [
+          { name: 'Cost', type: 'Number' },
+          { name: 'ResourceGroup', type: 'String' },
+          { name: 'Currency', type: 'String' },
+        ],
+        rows: [[1500.0, 'rg-production', 'USD']],
+      });
+
+      const result = await client.queryCosts(
+        '2026-03-01',
+        '2026-03-31',
+        'ResourceGroup',
+      );
+
+      expect(result.rows[0].serviceName).toBe('rg-production');
+      expect(mockUsage).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          dataset: expect.objectContaining({
+            grouping: [{ type: 'Dimension', name: 'ResourceGroup' }],
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('getRecommendations', () => {
+    it('returns only Cost category recommendations', async () => {
+      mockRecommendationsList.mockReturnValue({
+        [Symbol.asyncIterator]: async function* () {
+          yield {
+            id: 'rec-1',
+            category: 'Cost',
+            impact: 'High',
+            shortDescription: { solution: 'Right-size VM from D4 to D2' },
+            extendedProperties: {
+              savingsAmount: '150.00',
+              savingsCurrency: 'USD',
+            },
+            resourceMetadata: {
+              resourceId: '/subscriptions/sub/vms/vm1',
+            },
+          };
+          yield {
+            id: 'rec-2',
+            category: 'Security',
+            impact: 'Medium',
+            shortDescription: { solution: 'Enable MFA' },
+          };
+          yield {
+            id: 'rec-3',
+            category: 'Cost',
+            impact: 'Medium',
+            shortDescription: {
+              solution: 'Delete unused storage account',
+            },
+            extendedProperties: {
+              savingsAmount: '25.50',
+              savingsCurrency: 'USD',
+            },
+            resourceMetadata: {
+              resourceId: '/subscriptions/sub/storage/sa1',
+            },
+          };
+        },
+      });
+
+      const recs = await client.getRecommendations('all');
+
+      expect(recs).toHaveLength(2);
+      expect(recs[0]).toEqual({
+        id: 'rec-1',
+        category: 'Cost',
+        impact: 'High',
+        description: 'Right-size VM from D4 to D2',
+        savingsAmount: 150.0,
+        savingsCurrency: 'USD',
+        resourceId: '/subscriptions/sub/vms/vm1',
+      });
+      expect(recs[1]).toEqual({
+        id: 'rec-3',
+        category: 'Cost',
+        impact: 'Medium',
+        description: 'Delete unused storage account',
+        savingsAmount: 25.5,
+        savingsCurrency: 'USD',
+        resourceId: '/subscriptions/sub/storage/sa1',
+      });
+    });
+
+    it('filters by category keyword when not "all"', async () => {
+      mockRecommendationsList.mockReturnValue({
+        [Symbol.asyncIterator]: async function* () {
+          yield {
+            id: 'rec-1',
+            category: 'Cost',
+            impact: 'High',
+            shortDescription: {
+              solution: 'Right-size compute instance',
+            },
+            extendedProperties: {},
+            resourceMetadata: {},
+          };
+          yield {
+            id: 'rec-2',
+            category: 'Cost',
+            impact: 'Medium',
+            shortDescription: {
+              solution: 'Delete unused storage account',
+            },
+            extendedProperties: {},
+            resourceMetadata: {},
+          };
+        },
+      });
+
+      const recs = await client.getRecommendations('compute');
+
+      expect(recs).toHaveLength(1);
+      expect(recs[0].description).toBe('Right-size compute instance');
+    });
+
+    it('returns empty array when no Cost recommendations exist', async () => {
+      mockRecommendationsList.mockReturnValue({
+        [Symbol.asyncIterator]: async function* () {
+          yield {
+            id: 'rec-1',
+            category: 'Security',
+            impact: 'High',
+            shortDescription: { solution: 'Enable MFA' },
+          };
+        },
+      });
+
+      const recs = await client.getRecommendations('all');
+
+      expect(recs).toHaveLength(0);
+    });
+
+    it('handles recommendation with no extendedProperties', async () => {
+      mockRecommendationsList.mockReturnValue({
+        [Symbol.asyncIterator]: async function* () {
+          yield {
+            id: 'rec-1',
+            category: 'Cost',
+            impact: 'Low',
+            shortDescription: { problem: 'Unused resources detected' },
+          };
+        },
+      });
+
+      const recs = await client.getRecommendations();
+
+      expect(recs).toHaveLength(1);
+      expect(recs[0].description).toBe('Unused resources detected');
+      expect(recs[0].savingsAmount).toBeUndefined();
+      expect(recs[0].savingsCurrency).toBe('USD');
+      expect(recs[0].resourceId).toBeUndefined();
+    });
+
+    it('handles recommendation with no shortDescription', async () => {
+      mockRecommendationsList.mockReturnValue({
+        [Symbol.asyncIterator]: async function* () {
+          yield {
+            id: 'rec-1',
+            category: 'Cost',
+            impact: 'Low',
+          };
+        },
+      });
+
+      const recs = await client.getRecommendations();
+
+      expect(recs).toHaveLength(1);
+      expect(recs[0].description).toBe('No description');
+    });
+  });
+});
