@@ -19,7 +19,16 @@ export interface AzureRecommendation {
   resourceId?: string;
 }
 
-export type CostGrouping = 'ServiceName' | 'ResourceGroup' | 'ResourceLocation';
+export type CostGrouping = 'ServiceName' | 'ResourceGroup' | 'ResourceLocation' | 'ResourceId';
+
+export interface AzureBudget {
+  name: string;
+  amount: number;
+  timeGrain: string;
+  currentSpend: number;
+  forecastSpend: number;
+  currency: string;
+}
 
 export interface AzureForecastRow {
   date: string;

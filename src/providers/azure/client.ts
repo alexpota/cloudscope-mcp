@@ -1,8 +1,10 @@
 import { ClientSecretCredential, DefaultAzureCredential } from '@azure/identity';
 import { CostManagementClient } from '@azure/arm-costmanagement';
 import { AdvisorManagementClient } from '@azure/arm-advisor';
+import { ConsumptionManagementClient } from '@azure/arm-consumption';
 import type { AzureConfig } from '../../config.js';
 import type {
+  AzureBudget,
   AzureCostResult,
   AzureCostRow,
   AzureForecastResult,
@@ -14,6 +16,7 @@ import type {
 export class AzureCostClient {
   private costClient: CostManagementClient;
   private advisorClient: AdvisorManagementClient;
+  private consumptionClient: ConsumptionManagementClient;
   private subscriptionId: string;
 
   constructor(config: AzureConfig) {
@@ -26,6 +29,7 @@ export class AzureCostClient {
 
     this.costClient = new CostManagementClient(credential);
     this.advisorClient = new AdvisorManagementClient(credential, this.subscriptionId);
+    this.consumptionClient = new ConsumptionManagementClient(credential, this.subscriptionId);
   }
 
   get scope(): string {
@@ -132,5 +136,22 @@ export class AzureCostClient {
     }
 
     return recommendations;
+  }
+
+  async listBudgets(): Promise<AzureBudget[]> {
+    const budgets: AzureBudget[] = [];
+
+    for await (const budget of this.consumptionClient.budgets.list(this.scope)) {
+      budgets.push({
+        name: budget.name || 'Unnamed',
+        amount: budget.amount || 0,
+        timeGrain: budget.timeGrain || 'Monthly',
+        currentSpend: budget.currentSpend?.amount || 0,
+        forecastSpend: budget.forecastSpend?.amount || 0,
+        currency: budget.currentSpend?.unit || 'USD',
+      });
+    }
+
+    return budgets;
   }
 }

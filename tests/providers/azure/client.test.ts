@@ -10,6 +10,7 @@ vi.mock('@azure/identity', () => ({
 const mockUsage = vi.fn();
 const mockForecastUsage = vi.fn();
 const mockRecommendationsList = vi.fn();
+const mockBudgetsList = vi.fn();
 
 vi.mock('@azure/arm-costmanagement', () => ({
   CostManagementClient: vi.fn().mockImplementation(() => ({
@@ -18,6 +19,14 @@ vi.mock('@azure/arm-costmanagement', () => ({
     },
     forecast: {
       usage: mockForecastUsage,
+    },
+  })),
+}));
+
+vi.mock('@azure/arm-consumption', () => ({
+  ConsumptionManagementClient: vi.fn().mockImplementation(() => ({
+    budgets: {
+      list: mockBudgetsList,
     },
   })),
 }));
@@ -41,6 +50,9 @@ describe('AzureCostClient', () => {
     mockUsage.mockResolvedValue({ columns: [], rows: [] });
     mockForecastUsage.mockResolvedValue({ columns: [], rows: [] });
     mockRecommendationsList.mockReturnValue({
+      [Symbol.asyncIterator]: async function* () {},
+    });
+    mockBudgetsList.mockReturnValue({
       [Symbol.asyncIterator]: async function* () {},
     });
 
@@ -438,6 +450,55 @@ describe('AzureCostClient', () => {
 
       expect(result.rows).toHaveLength(0);
       expect(result.currency).toBe('USD');
+    });
+  });
+
+  describe('listBudgets', () => {
+    it('returns parsed budgets with spend and forecast', async () => {
+      mockBudgetsList.mockReturnValue({
+        [Symbol.asyncIterator]: async function* () {
+          yield {
+            name: 'Production',
+            amount: 10000,
+            timeGrain: 'Monthly',
+            currentSpend: { amount: 7500, unit: 'USD' },
+            forecastSpend: { amount: 11000, unit: 'USD' },
+          };
+        },
+      });
+
+      const budgets = await client.listBudgets();
+
+      expect(budgets).toHaveLength(1);
+      expect(budgets[0]).toEqual({
+        name: 'Production',
+        amount: 10000,
+        timeGrain: 'Monthly',
+        currentSpend: 7500,
+        forecastSpend: 11000,
+        currency: 'USD',
+      });
+    });
+
+    it('handles budgets with missing fields', async () => {
+      mockBudgetsList.mockReturnValue({
+        [Symbol.asyncIterator]: async function* () {
+          yield {};
+        },
+      });
+
+      const budgets = await client.listBudgets();
+
+      expect(budgets).toHaveLength(1);
+      expect(budgets[0].name).toBe('Unnamed');
+      expect(budgets[0].amount).toBe(0);
+      expect(budgets[0].currentSpend).toBe(0);
+      expect(budgets[0].forecastSpend).toBe(0);
+    });
+
+    it('returns empty array when no budgets exist', async () => {
+      const budgets = await client.listBudgets();
+      expect(budgets).toHaveLength(0);
     });
   });
 });
