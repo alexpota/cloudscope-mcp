@@ -30,8 +30,7 @@ export async function handleListRecommendations(
       '',
     ];
 
-    for (let i = 0; i < sorted.length; i++) {
-      const rec = sorted[i];
+    for (const [i, rec] of sorted.entries()) {
       lines.push(`${i + 1}. [${rec.impact}] ${rec.description}`);
       if (rec.savingsAmount) {
         lines.push(

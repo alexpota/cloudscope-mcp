@@ -35,6 +35,10 @@ export function firstOfCurrentMonth(): string {
   return pad(now.getFullYear(), now.getMonth() + 1, 1);
 }
 
+export function toDateString(date: Date): string {
+  return pad(date.getFullYear(), date.getMonth() + 1, date.getDate());
+}
+
 function pad(year: number, month: number, day: number): string {
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }

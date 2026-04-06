@@ -1,5 +1,6 @@
 import { formatMoney, formatTable } from '../utils/formatter.js';
 import { toolResult, withProvider, type ToolResult, type Providers } from './types.js';
+import { toDateString } from '../utils/dates.js';
 import { MS_PER_DAY, COST_STATUS_FORECAST, COST_STATUS_ACTUAL } from '../constants.js';
 
 interface ForecastInput {
@@ -13,8 +14,8 @@ export async function handleGetCostForecast(
 ): Promise<ToolResult> {
   return withProvider(providers, input.provider, async (provider) => {
     const now = new Date();
-    const startDate = now.toISOString().split('T')[0];
-    const endDate = new Date(now.getTime() + input.days * MS_PER_DAY).toISOString().split('T')[0];
+    const startDate = toDateString(now);
+    const endDate = toDateString(new Date(now.getTime() + input.days * MS_PER_DAY));
 
     const result = await provider.forecastCosts(startDate, endDate);
 

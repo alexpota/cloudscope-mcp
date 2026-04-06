@@ -87,7 +87,10 @@ export function formatTable(options: TableOptions): string {
 
   const formatRow = (cells: string[]) =>
     cells
-      .map((c, i) => (rightSet.has(i) ? c.padStart(widths[i]) : c.padEnd(widths[i])))
+      .map((c, i) => {
+        const w = widths[i] ?? 0;
+        return rightSet.has(i) ? c.padStart(w) : c.padEnd(w);
+      })
       .join(' | ');
 
   const separator = widths.map((w) => '-'.repeat(w)).join('-|-');

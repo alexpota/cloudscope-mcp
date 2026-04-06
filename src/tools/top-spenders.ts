@@ -1,5 +1,6 @@
 import { formatMoney, formatTable } from '../utils/formatter.js';
 import { toolResult, withProvider, type ToolResult, type Providers } from './types.js';
+import { toDateString } from '../utils/dates.js';
 import { MS_PER_DAY } from '../constants.js';
 
 interface TopSpendersInput {
@@ -14,8 +15,8 @@ export async function handleTopSpendingResources(
 ): Promise<ToolResult> {
   return withProvider(providers, input.provider, async (provider) => {
     const now = new Date();
-    const endDate = now.toISOString().split('T')[0];
-    const startDate = new Date(now.getTime() - input.days * MS_PER_DAY).toISOString().split('T')[0];
+    const endDate = toDateString(now);
+    const startDate = toDateString(new Date(now.getTime() - input.days * MS_PER_DAY));
 
     const result = await provider.queryCosts(startDate, endDate, 'ResourceId');
     const sorted = [...result.rows].sort((a, b) => b.cost - a.cost).slice(0, input.limit);

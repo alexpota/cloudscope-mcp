@@ -1,5 +1,6 @@
 import { formatMoney, formatTable } from '../utils/formatter.js';
 import { toolResult, withProvider, type ToolResult, type Providers } from './types.js';
+import { toDateString } from '../utils/dates.js';
 import { MS_PER_DAY, NEW_SERVICE_CHANGE_PERCENT, DEFAULT_CURRENCY } from '../constants.js';
 
 interface AnomaliesInput {
@@ -14,14 +15,10 @@ export async function handleDetectAnomalies(
 ): Promise<ToolResult> {
   return withProvider(providers, input.provider, async (provider) => {
     const now = new Date();
-    const currentEnd = now.toISOString().split('T')[0];
-    const currentStart = new Date(now.getTime() - input.days * MS_PER_DAY)
-      .toISOString()
-      .split('T')[0];
+    const currentEnd = toDateString(now);
+    const currentStart = toDateString(new Date(now.getTime() - input.days * MS_PER_DAY));
     const previousEnd = currentStart;
-    const previousStart = new Date(now.getTime() - input.days * 2 * MS_PER_DAY)
-      .toISOString()
-      .split('T')[0];
+    const previousStart = toDateString(new Date(now.getTime() - input.days * 2 * MS_PER_DAY));
 
     const [current, previous] = await Promise.all([
       provider.queryCosts(currentStart, currentEnd, 'ServiceName'),
