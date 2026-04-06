@@ -13,8 +13,8 @@ describe('handleGetCostSummary', () => {
   it('returns formatted cost table for Azure', async () => {
     mockAzureClient.queryCosts.mockResolvedValueOnce({
       rows: [
-        { serviceName: 'Virtual Machines', cost: 4231.5, currency: 'USD' },
-        { serviceName: 'Storage', cost: 1050.75, currency: 'USD' },
+        { name: 'Virtual Machines', cost: 4231.5 },
+        { name: 'Storage', cost: 1050.75 },
       ],
       currency: 'USD',
     });
@@ -42,7 +42,7 @@ describe('handleGetCostSummary', () => {
 
   it('maps group_by to correct Azure grouping', async () => {
     mockAzureClient.queryCosts.mockResolvedValueOnce({
-      rows: [{ serviceName: 'my-rg', cost: 500, currency: 'USD' }],
+      rows: [{ name: 'my-rg', cost: 500 }],
       currency: 'USD',
     });
 
@@ -99,7 +99,7 @@ describe('handleGetCostSummary', () => {
 
     it('defaults to current month when dates omitted', async () => {
       mockAzureClient.queryCosts.mockResolvedValueOnce({
-        rows: [{ serviceName: 'VM', cost: 100, currency: 'USD' }],
+        rows: [{ name: 'VM', cost: 100 }],
         currency: 'USD',
       });
 

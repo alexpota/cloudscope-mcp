@@ -1,7 +1,10 @@
-export interface ToolResult {
-  [key: string]: unknown;
-  content: Array<{ type: 'text'; text: string }>;
-  isError?: boolean;
+import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { CloudCostProvider } from '../providers/types.js';
+
+export type ToolResult = CallToolResult;
+
+export interface Providers {
+  azure: CloudCostProvider | null;
 }
 
 export function toolResult(text: string): ToolResult {
@@ -11,4 +14,22 @@ export function toolResult(text: string): ToolResult {
 export function toolError(error: unknown): ToolResult {
   const message = error instanceof Error ? error.message : String(error);
   return { content: [{ type: 'text', text: `Error: ${message}` }], isError: true };
+}
+
+export async function withProvider(
+  providers: Providers,
+  providerName: 'azure',
+  handler: (provider: CloudCostProvider) => Promise<ToolResult>,
+): Promise<ToolResult> {
+  const provider = providers[providerName];
+  if (!provider) {
+    return toolError(
+      new Error(`${providerName} is not configured. Set the required environment variables.`),
+    );
+  }
+  try {
+    return await handler(provider);
+  } catch (error) {
+    return toolError(error);
+  }
 }

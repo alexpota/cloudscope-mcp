@@ -52,14 +52,14 @@ describe('Edge cases', () => {
         queryCosts: vi.fn()
           .mockResolvedValueOnce({
             rows: [
-              { serviceName: 'Existing', cost: 100, currency: 'USD' },
-              { serviceName: 'BrandNew', cost: 500, currency: 'USD' },
+              { name: 'Existing', cost: 100 },
+              { name: 'BrandNew', cost: 500 },
             ],
             currency: 'USD',
           })
           .mockResolvedValueOnce({
             rows: [
-              { serviceName: 'Existing', cost: 100, currency: 'USD' },
+              { name: 'Existing', cost: 100 },
             ],
             currency: 'USD',
           }),
@@ -98,11 +98,11 @@ describe('Edge cases', () => {
       const client = makeAzureClient({
         queryCosts: vi.fn()
           .mockResolvedValueOnce({
-            rows: [{ serviceName: 'Call1Service', cost: 100, currency: 'USD' }],
+            rows: [{ name: 'Call1Service', cost: 100 }],
             currency: 'USD',
           })
           .mockResolvedValueOnce({
-            rows: [{ serviceName: 'Call2Service', cost: 200, currency: 'USD' }],
+            rows: [{ name: 'Call2Service', cost: 200 }],
             currency: 'USD',
           }),
       });
@@ -130,7 +130,7 @@ describe('Edge cases', () => {
         queryCosts: vi.fn()
           .mockRejectedValueOnce(new Error('First call fails'))
           .mockResolvedValueOnce({
-            rows: [{ serviceName: 'OK', cost: 100, currency: 'USD' }],
+            rows: [{ name: 'OK', cost: 100 }],
             currency: 'USD',
           }),
       });

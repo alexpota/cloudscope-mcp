@@ -1,7 +1,6 @@
-import { formatMoney } from '../utils/formatter.js';
-import { ProviderNotConfiguredError } from '../utils/errors.js';
-import type { Providers } from './cost-summary.js';
-import { toolResult, toolError, type ToolResult } from './types.js';
+import { formatMoney, formatTable } from '../utils/formatter.js';
+import { toolResult, withProvider, type ToolResult, type Providers } from './types.js';
+import { MS_PER_DAY, COST_STATUS_FORECAST, COST_STATUS_ACTUAL } from '../constants.js';
 
 interface ForecastInput {
   provider: 'azure';
@@ -12,55 +11,53 @@ export async function handleGetCostForecast(
   input: ForecastInput,
   providers: Providers,
 ): Promise<ToolResult> {
-  try {
-    if (!providers.azure) throw new ProviderNotConfiguredError();
-
+  return withProvider(providers, input.provider, async (provider) => {
     const now = new Date();
     const startDate = now.toISOString().split('T')[0];
-    const endDate = new Date(now.getTime() + input.days * 86400000).toISOString().split('T')[0];
+    const endDate = new Date(now.getTime() + input.days * MS_PER_DAY).toISOString().split('T')[0];
 
-    const result = await providers.azure.forecastCosts(startDate, endDate);
+    const result = await provider.forecastCosts(startDate, endDate);
 
-    const actualRows = result.rows.filter((r) => r.costType === 'Actual');
-    const forecastRows = result.rows.filter((r) => r.costType === 'Forecast');
-
-    const actualTotal = actualRows.reduce((sum, r) => sum + r.cost, 0);
-    const forecastTotal = forecastRows.reduce((sum, r) => sum + r.cost, 0);
+    const actualTotal = result.rows
+      .filter((r) => r.costType === COST_STATUS_ACTUAL)
+      .reduce((s, r) => s + r.cost, 0);
+    const forecastTotal = result.rows
+      .filter((r) => r.costType === COST_STATUS_FORECAST)
+      .reduce((s, r) => s + r.cost, 0);
     const projectedTotal = actualTotal + forecastTotal;
 
-    const lines: string[] = [];
-    lines.push(`Azure Cost Forecast (${startDate} to ${endDate})`);
-    lines.push('');
-    lines.push(`Accrued to date:       ${formatMoney(actualTotal, result.currency)}`);
-    lines.push(`Forecasted remaining:  ${formatMoney(forecastTotal, result.currency)}`);
-    lines.push(`Projected total:       ${formatMoney(projectedTotal, result.currency)}`);
-    lines.push('');
+    const lines: string[] = [
+      `Cost Forecast (${startDate} to ${endDate})`,
+      '',
+      `Accrued to date:       ${formatMoney(actualTotal, result.currency)}`,
+      `Forecasted remaining:  ${formatMoney(forecastTotal, result.currency)}`,
+      `Projected total:       ${formatMoney(projectedTotal, result.currency)}`,
+      '',
+    ];
 
     if (input.days > 0) {
-      const dailyAvg = projectedTotal / input.days;
-      lines.push(`Projected daily average: ${formatMoney(dailyAvg, result.currency)}`);
+      lines.push(
+        `Projected daily average: ${formatMoney(projectedTotal / input.days, result.currency)}`,
+      );
     }
 
+    const forecastRows = result.rows.filter((r) => r.costType === COST_STATUS_FORECAST);
     if (forecastRows.length > 0) {
-      lines.push('');
-      lines.push('Daily Forecast:');
-      lines.push(`${'Date'.padEnd(12)} | ${'Cost'.padStart(12)} | Type`);
-      lines.push(`${'-'.repeat(12)}-|-${'-'.repeat(12)}-|--------`);
-
-      const allRows = [...result.rows].sort((a, b) => a.date.localeCompare(b.date));
-
-      for (const row of allRows) {
-        const dateStr = formatDate(row.date);
-        lines.push(
-          `${dateStr.padEnd(12)} | ${formatMoney(row.cost, result.currency).padStart(12)} | ${row.costType}`,
-        );
-      }
+      const allSorted = [...result.rows].sort((a, b) => a.date.localeCompare(b.date));
+      const table = formatTable({
+        headers: ['Date', 'Cost', 'Type'],
+        rows: allSorted.map((r) => [
+          formatDate(r.date),
+          formatMoney(r.cost, result.currency),
+          r.costType,
+        ]),
+        alignRight: [1],
+      });
+      lines.push('', 'Daily Forecast:', table);
     }
 
     return toolResult(lines.join('\n'));
-  } catch (error) {
-    return toolError(error);
-  }
+  });
 }
 
 function formatDate(raw: string): string {

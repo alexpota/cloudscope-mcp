@@ -37,13 +37,13 @@ async function validate(): Promise<void> {
 
   process.stdout.write(`Azure: Checking subscription ${config.azure.subscriptionId}...\n`);
 
-  try {
-    const client = new AzureCostClient(config.azure);
-    await client.listBudgets();
-    process.stdout.write(`Azure: Connected (subscription: ${config.azure.subscriptionId})\n`);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    process.stdout.write(`Azure: Failed (${message})\n`);
+  const client = new AzureCostClient(config.azure);
+  const result = await client.validate();
+
+  if (result.connected) {
+    process.stdout.write(`Azure: Connected (${result.detail})\n`);
+  } else {
+    process.stdout.write(`Azure: Failed (${result.detail})\n`);
     process.exit(1);
   }
 }

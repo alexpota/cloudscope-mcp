@@ -91,8 +91,12 @@ describe('AzureCostClient', () => {
       expect(DefaultAzureCredential).toHaveBeenCalled();
     });
 
-    it('exposes scope as /subscriptions/{id}', () => {
-      expect(client.scope).toBe('/subscriptions/sub-abc');
+    it('implements CloudCostProvider interface', () => {
+      expect(typeof client.queryCosts).toBe('function');
+      expect(typeof client.forecastCosts).toBe('function');
+      expect(typeof client.getRecommendations).toBe('function');
+      expect(typeof client.listBudgets).toBe('function');
+      expect(typeof client.validate).toBe('function');
     });
   });
 
@@ -148,19 +152,19 @@ describe('AzureCostClient', () => {
 
       expect(result.rows).toHaveLength(3);
       expect(result.rows[0]).toEqual({
-        serviceName: 'Virtual Machines',
+        name: 'Virtual Machines',
         cost: 4231.5,
-        currency: 'USD',
+
       });
       expect(result.rows[1]).toEqual({
-        serviceName: 'Azure SQL Database',
+        name: 'Azure SQL Database',
         cost: 2100.0,
-        currency: 'USD',
+
       });
       expect(result.rows[2]).toEqual({
-        serviceName: 'Azure Kubernetes Service',
+        name: 'Azure Kubernetes Service',
         cost: 890.0,
-        currency: 'USD',
+
       });
       expect(result.currency).toBe('USD');
     });
@@ -214,7 +218,7 @@ describe('AzureCostClient', () => {
         'ResourceGroup',
       );
 
-      expect(result.rows[0].serviceName).toBe('rg-production');
+      expect(result.rows[0].name).toBe('rg-production');
       expect(mockUsage).toHaveBeenCalledWith(
         expect.any(String),
         expect.objectContaining({
@@ -429,13 +433,13 @@ describe('AzureCostClient', () => {
         date: '20260401',
         cost: 100.0,
         costType: 'Actual',
-        currency: 'USD',
+
       });
       expect(result.rows[1]).toEqual({
         date: '20260402',
         cost: 95.0,
         costType: 'Forecast',
-        currency: 'USD',
+
       });
       expect(result.currency).toBe('USD');
     });
@@ -473,7 +477,6 @@ describe('AzureCostClient', () => {
       expect(budgets[0]).toEqual({
         name: 'Production',
         amount: 10000,
-        timeGrain: 'Monthly',
         currentSpend: 7500,
         forecastSpend: 11000,
         currency: 'USD',

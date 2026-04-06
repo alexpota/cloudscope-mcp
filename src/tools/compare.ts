@@ -1,9 +1,7 @@
-import { formatMoney } from '../utils/formatter.js';
-import { ProviderNotConfiguredError } from '../utils/errors.js';
+import { formatMoney, formatTable } from '../utils/formatter.js';
 import { validateDateRange } from '../utils/dates.js';
-import type { Providers } from './cost-summary.js';
-import type { CostGrouping } from '../providers/azure/types.js';
-import { toolResult, toolError, type ToolResult } from './types.js';
+import { GROUP_BY_MAP, DEFAULT_CURRENCY } from '../constants.js';
+import { toolResult, toolError, withProvider, type ToolResult, type Providers } from './types.js';
 
 interface CompareInput {
   provider: 'azure';
@@ -14,35 +12,27 @@ interface CompareInput {
   group_by: 'service' | 'resource_group';
 }
 
-const GROUP_BY_MAP: Record<string, CostGrouping> = {
-  service: 'ServiceName',
-  resource_group: 'ResourceGroup',
-};
-
 export async function handleComparePeriods(
   input: CompareInput,
   providers: Providers,
 ): Promise<ToolResult> {
-  try {
-    if (!providers.azure) throw new ProviderNotConfiguredError();
+  const errA = validateDateRange(input.period_a_start, input.period_a_end);
+  if (errA) return toolError(new Error(`Period A: ${errA}`));
+  const errB = validateDateRange(input.period_b_start, input.period_b_end);
+  if (errB) return toolError(new Error(`Period B: ${errB}`));
 
-    const errA = validateDateRange(input.period_a_start, input.period_a_end);
-    if (errA) return toolError(new Error(`Period A: ${errA}`));
-    const errB = validateDateRange(input.period_b_start, input.period_b_end);
-    if (errB) return toolError(new Error(`Period B: ${errB}`));
-
+  return withProvider(providers, input.provider, async (provider) => {
     const grouping = GROUP_BY_MAP[input.group_by] || 'ServiceName';
 
     const [periodA, periodB] = await Promise.all([
-      providers.azure.queryCosts(input.period_a_start, input.period_a_end, grouping),
-      providers.azure.queryCosts(input.period_b_start, input.period_b_end, grouping),
+      provider.queryCosts(input.period_a_start, input.period_a_end, grouping),
+      provider.queryCosts(input.period_b_start, input.period_b_end, grouping),
     ]);
 
-    const mapA = new Map(periodA.rows.map((r) => [r.serviceName, r.cost]));
-    const mapB = new Map(periodB.rows.map((r) => [r.serviceName, r.cost]));
-
+    const mapA = new Map(periodA.rows.map((r) => [r.name, r.cost]));
+    const mapB = new Map(periodB.rows.map((r) => [r.name, r.cost]));
     const allNames = new Set([...mapA.keys(), ...mapB.keys()]);
-    const currency = periodA.currency || periodB.currency || 'USD';
+    const currency = periodA.currency || periodB.currency || DEFAULT_CURRENCY;
 
     const rows = [...allNames]
       .map((name) => {
@@ -59,41 +49,42 @@ export async function handleComparePeriods(
     const totalDiff = totalB - totalA;
     const totalPct = totalA > 0 ? (totalDiff / totalA) * 100 : 0;
 
-    const groupLabel = input.group_by === 'service' ? 'Service' : 'Resource Group';
-    const nameWidth = Math.max(groupLabel.length, ...rows.map((r) => r.name.length), 5);
+    const sign = (n: number) => (n >= 0 ? '+' : '');
 
-    const lines: string[] = [];
-    lines.push(`Cost Comparison`);
-    lines.push(`Period A: ${input.period_a_start} to ${input.period_a_end}`);
-    lines.push(`Period B: ${input.period_b_start} to ${input.period_b_end}`);
-    lines.push('');
-    lines.push(
-      `${groupLabel.padEnd(nameWidth)} | ${'Period A'.padStart(12)} | ${'Period B'.padStart(12)} | ${'Change'.padStart(14)}`,
-    );
-    lines.push(
-      `${'-'.repeat(nameWidth)}-|-${'-'.repeat(12)}-|-${'-'.repeat(12)}-|-${'-'.repeat(14)}`,
-    );
+    const table = formatTable({
+      headers: [
+        input.group_by === 'service' ? 'Service' : 'Resource Group',
+        'Period A',
+        'Period B',
+        'Change',
+      ],
+      rows: [
+        ...rows.map((r) => [
+          r.name,
+          formatMoney(r.costA, currency),
+          formatMoney(r.costB, currency),
+          `${sign(r.pctChange)}${r.pctChange.toFixed(1)}%`,
+        ]),
+        [
+          'TOTAL',
+          formatMoney(totalA, currency),
+          formatMoney(totalB, currency),
+          `${sign(totalPct)}${totalPct.toFixed(1)}%`,
+        ],
+      ],
+      alignRight: [1, 2, 3],
+    });
 
-    for (const r of rows) {
-      const sign = r.diff >= 0 ? '+' : '';
-      const change = `${sign}${r.pctChange.toFixed(1)}%`;
-      lines.push(
-        `${r.name.padEnd(nameWidth)} | ${formatMoney(r.costA, currency).padStart(12)} | ${formatMoney(r.costB, currency).padStart(12)} | ${change.padStart(14)}`,
-      );
-    }
-
-    lines.push(
-      `${'-'.repeat(nameWidth)}-|-${'-'.repeat(12)}-|-${'-'.repeat(12)}-|-${'-'.repeat(14)}`,
-    );
-    const totalSign = totalDiff >= 0 ? '+' : '';
-    lines.push(
-      `${'TOTAL'.padEnd(nameWidth)} | ${formatMoney(totalA, currency).padStart(12)} | ${formatMoney(totalB, currency).padStart(12)} | ${(totalSign + totalPct.toFixed(1) + '%').padStart(14)}`,
-    );
-    lines.push('');
-    lines.push(`Net change: ${totalSign}${formatMoney(totalDiff, currency)}`);
+    const lines = [
+      'Cost Comparison',
+      `Period A: ${input.period_a_start} to ${input.period_a_end}`,
+      `Period B: ${input.period_b_start} to ${input.period_b_end}`,
+      '',
+      table,
+      '',
+      `Net change: ${sign(totalDiff)}${formatMoney(totalDiff, currency)}`,
+    ];
 
     return toolResult(lines.join('\n'));
-  } catch (error) {
-    return toolError(error);
-  }
+  });
 }

@@ -73,6 +73,28 @@ export function formatCostTable(options: CostTableOptions): string {
   return lines.join('\n');
 }
 
+export interface TableOptions {
+  headers: string[];
+  rows: string[][];
+  alignRight?: number[];
+}
+
+export function formatTable(options: TableOptions): string {
+  const { headers, rows, alignRight = [] } = options;
+  const rightSet = new Set(alignRight);
+
+  const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => (r[i] || '').length)));
+
+  const formatRow = (cells: string[]) =>
+    cells
+      .map((c, i) => (rightSet.has(i) ? c.padStart(widths[i]) : c.padEnd(widths[i])))
+      .join(' | ');
+
+  const separator = widths.map((w) => '-'.repeat(w)).join('-|-');
+
+  return [formatRow(headers), separator, ...rows.map(formatRow)].join('\n');
+}
+
 export function formatMoney(amount: number, currency: string): string {
   const symbol = currency === 'USD' ? '$' : currency;
   return `${symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

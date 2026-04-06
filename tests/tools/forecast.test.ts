@@ -23,7 +23,7 @@ describe('handleGetCostForecast', () => {
     );
 
     const text = result.content[0].text;
-    expect(text).toContain('Azure Cost Forecast');
+    expect(text).toContain('Cost Forecast');
     expect(text).toContain('Accrued to date:');
     expect(text).toContain('$210.00');
     expect(text).toContain('Forecasted remaining:');

@@ -9,9 +9,9 @@ describe('handleTopSpendingResources', () => {
   it('returns top N resources sorted by cost', async () => {
     mockAzureClient.queryCosts.mockResolvedValueOnce({
       rows: [
-        { serviceName: '/subscriptions/s/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/prod-web-01', cost: 800, currency: 'USD' },
-        { serviceName: '/subscriptions/s/resourceGroups/rg/providers/Microsoft.Sql/servers/db-main', cost: 1200, currency: 'USD' },
-        { serviceName: '/subscriptions/s/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/logs', cost: 200, currency: 'USD' },
+        { name: '/subscriptions/s/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/prod-web-01', cost: 800 },
+        { name: '/subscriptions/s/resourceGroups/rg/providers/Microsoft.Sql/servers/db-main', cost: 1200 },
+        { name: '/subscriptions/s/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/logs', cost: 200 },
       ],
       currency: 'USD',
     });
@@ -33,9 +33,9 @@ describe('handleTopSpendingResources', () => {
   it('respects the limit parameter', async () => {
     mockAzureClient.queryCosts.mockResolvedValueOnce({
       rows: [
-        { serviceName: '/a/b/c/res1', cost: 300, currency: 'USD' },
-        { serviceName: '/a/b/c/res2', cost: 200, currency: 'USD' },
-        { serviceName: '/a/b/c/res3', cost: 100, currency: 'USD' },
+        { name: '/a/b/c/res1', cost: 300 },
+        { name: '/a/b/c/res2', cost: 200 },
+        { name: '/a/b/c/res3', cost: 100 },
       ],
       currency: 'USD',
     });

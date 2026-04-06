@@ -10,15 +10,15 @@ describe('handleComparePeriods', () => {
     mockAzureClient.queryCosts
       .mockResolvedValueOnce({
         rows: [
-          { serviceName: 'VMs', cost: 1000, currency: 'USD' },
-          { serviceName: 'Storage', cost: 500, currency: 'USD' },
+          { name: 'VMs', cost: 1000 },
+          { name: 'Storage', cost: 500 },
         ],
         currency: 'USD',
       })
       .mockResolvedValueOnce({
         rows: [
-          { serviceName: 'VMs', cost: 1500, currency: 'USD' },
-          { serviceName: 'Storage', cost: 400, currency: 'USD' },
+          { name: 'VMs', cost: 1500 },
+          { name: 'Storage', cost: 400 },
         ],
         currency: 'USD',
       });
@@ -48,11 +48,11 @@ describe('handleComparePeriods', () => {
   it('handles services that exist in only one period', async () => {
     mockAzureClient.queryCosts
       .mockResolvedValueOnce({
-        rows: [{ serviceName: 'OldService', cost: 300, currency: 'USD' }],
+        rows: [{ name: 'OldService', cost: 300 }],
         currency: 'USD',
       })
       .mockResolvedValueOnce({
-        rows: [{ serviceName: 'NewService', cost: 200, currency: 'USD' }],
+        rows: [{ name: 'NewService', cost: 200 }],
         currency: 'USD',
       });
 

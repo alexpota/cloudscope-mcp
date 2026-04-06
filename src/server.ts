@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { getConfig } from './config.js';
 import { AzureCostClient } from './providers/azure/client.js';
 import { Cache } from './utils/cache.js';
-import { handleGetCostSummary, type Providers } from './tools/cost-summary.js';
+import { handleGetCostSummary } from './tools/cost-summary.js';
 import { handleDetectAnomalies } from './tools/anomalies.js';
 import { handleListRecommendations } from './tools/recommendations.js';
 import { handleGetCostForecast } from './tools/forecast.js';
@@ -11,7 +11,7 @@ import { handleCheckBudgets } from './tools/budgets.js';
 import { handleComparePeriods } from './tools/compare.js';
 import { handleTopSpendingResources } from './tools/top-spenders.js';
 import { handleGetCurrentDate } from './tools/current-date.js';
-import type { ToolResult } from './tools/types.js';
+import type { ToolResult, Providers } from './tools/types.js';
 import {
   PACKAGE_NAME,
   PACKAGE_VERSION,

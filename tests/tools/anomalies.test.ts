@@ -9,15 +9,15 @@ describe('handleDetectAnomalies', () => {
   it('shows dollar amount and percentage for each anomaly', async () => {
     mockAzureClient.queryCosts.mockResolvedValueOnce({
       rows: [
-        { serviceName: 'Virtual Machines', cost: 500, currency: 'USD' },
-        { serviceName: 'Storage', cost: 120, currency: 'USD' },
+        { name: 'Virtual Machines', cost: 500 },
+        { name: 'Storage', cost: 120 },
       ],
       currency: 'USD',
     });
     mockAzureClient.queryCosts.mockResolvedValueOnce({
       rows: [
-        { serviceName: 'Virtual Machines', cost: 300, currency: 'USD' },
-        { serviceName: 'Storage', cost: 100, currency: 'USD' },
+        { name: 'Virtual Machines', cost: 300 },
+        { name: 'Storage', cost: 100 },
       ],
       currency: 'USD',
     });
@@ -36,11 +36,11 @@ describe('handleDetectAnomalies', () => {
 
   it('reports no anomalies when all changes are below threshold', async () => {
     mockAzureClient.queryCosts.mockResolvedValueOnce({
-      rows: [{ serviceName: 'Storage', cost: 105, currency: 'USD' }],
+      rows: [{ name: 'Storage', cost: 105 }],
       currency: 'USD',
     });
     mockAzureClient.queryCosts.mockResolvedValueOnce({
-      rows: [{ serviceName: 'Storage', cost: 100, currency: 'USD' }],
+      rows: [{ name: 'Storage', cost: 100 }],
       currency: 'USD',
     });
 

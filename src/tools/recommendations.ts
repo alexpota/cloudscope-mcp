@@ -1,7 +1,6 @@
 import { formatMoney } from '../utils/formatter.js';
-import { ProviderNotConfiguredError } from '../utils/errors.js';
-import type { Providers } from './cost-summary.js';
-import { toolResult, toolError, type ToolResult } from './types.js';
+import { toolResult, withProvider, type ToolResult, type Providers } from './types.js';
+import { DEFAULT_CURRENCY } from '../constants.js';
 
 interface RecommendationsInput {
   provider: 'azure';
@@ -12,44 +11,39 @@ export async function handleListRecommendations(
   input: RecommendationsInput,
   providers: Providers,
 ): Promise<ToolResult> {
-  try {
-    if (!providers.azure) throw new ProviderNotConfiguredError();
-
-    const recs = await providers.azure.getRecommendations(input.category);
+  return withProvider(providers, input.provider, async (provider) => {
+    const recs = await provider.getRecommendations(input.category);
 
     if (recs.length === 0) {
       return toolResult(
-        `No cost optimization recommendations found for Azure.\n\nCategory filter: ${input.category}\nThis could mean your resources are already well-optimized, or Azure Advisor hasn't generated recommendations yet.`,
+        `No cost optimization recommendations found.\n\nCategory filter: ${input.category}\nThis could mean your resources are already well-optimized, or recommendations haven't been generated yet.`,
       );
     }
 
     const sorted = [...recs].sort((a, b) => (b.savingsAmount || 0) - (a.savingsAmount || 0));
-
     const totalSavings = sorted.reduce((sum, r) => sum + (r.savingsAmount || 0), 0);
 
-    const lines: string[] = [];
-    lines.push(`Azure Cost Optimization Recommendations`);
-    lines.push(`Category: ${input.category} | Found: ${sorted.length} recommendation(s)`);
-    lines.push(`Estimated total monthly savings: ${formatMoney(totalSavings, 'USD')}`);
-    lines.push('');
+    const lines: string[] = [
+      'Cost Optimization Recommendations',
+      `Category: ${input.category} | Found: ${sorted.length} recommendation(s)`,
+      `Estimated total monthly savings: ${formatMoney(totalSavings, DEFAULT_CURRENCY)}`,
+      '',
+    ];
 
     for (let i = 0; i < sorted.length; i++) {
       const rec = sorted[i];
       lines.push(`${i + 1}. [${rec.impact}] ${rec.description}`);
       if (rec.savingsAmount) {
         lines.push(
-          `   Estimated savings: ${formatMoney(rec.savingsAmount, rec.savingsCurrency || 'USD')}/month`,
+          `   Estimated savings: ${formatMoney(rec.savingsAmount, rec.savingsCurrency || DEFAULT_CURRENCY)}/month`,
         );
       }
       if (rec.resourceId) {
-        const resourceName = rec.resourceId.split('/').pop() || rec.resourceId;
-        lines.push(`   Resource: ${resourceName}`);
+        lines.push(`   Resource: ${rec.resourceId.split('/').pop() || rec.resourceId}`);
       }
       lines.push('');
     }
 
     return toolResult(lines.join('\n'));
-  } catch (error) {
-    return toolError(error);
-  }
+  });
 }

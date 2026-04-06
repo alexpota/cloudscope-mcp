@@ -4,16 +4,26 @@ import { AdvisorManagementClient } from '@azure/arm-advisor';
 import { ConsumptionManagementClient } from '@azure/arm-consumption';
 import type { AzureConfig } from '../../config.js';
 import type {
-  AzureBudget,
-  AzureCostResult,
-  AzureCostRow,
-  AzureForecastResult,
-  AzureForecastRow,
-  AzureRecommendation,
-  CostGrouping,
-} from './types.js';
+  CloudCostProvider,
+  CostQueryResult,
+  ForecastResult,
+  Recommendation,
+  BudgetInfo,
+} from '../types.js';
+import {
+  AZURE_COST_TYPE,
+  AZURE_COST_AGGREGATION_NAME,
+  AZURE_COST_AGGREGATION_FUNCTION,
+  AZURE_GROUPING_TYPE,
+  AZURE_GRANULARITY_NONE,
+  AZURE_GRANULARITY_DAILY,
+  AZURE_COST_CATEGORY,
+  DEFAULT_CURRENCY,
+  COST_STATUS_FORECAST,
+  COST_STATUS_ACTUAL,
+} from '../../constants.js';
 
-export class AzureCostClient {
+export class AzureCostClient implements CloudCostProvider {
   private costClient: CostManagementClient;
   private advisorClient: AdvisorManagementClient;
   private consumptionClient: ConsumptionManagementClient;
@@ -32,51 +42,50 @@ export class AzureCostClient {
     this.consumptionClient = new ConsumptionManagementClient(credential, this.subscriptionId);
   }
 
-  get scope(): string {
+  private get scope(): string {
     return `/subscriptions/${this.subscriptionId}`;
   }
 
-  async queryCosts(
-    startDate: string,
-    endDate: string,
-    grouping: CostGrouping,
-  ): Promise<AzureCostResult> {
+  async queryCosts(startDate: string, endDate: string, grouping: string): Promise<CostQueryResult> {
     const result = await this.costClient.query.usage(this.scope, {
-      type: 'ActualCost',
+      type: AZURE_COST_TYPE,
       timeframe: 'Custom',
       timePeriod: {
         from: new Date(startDate),
         to: new Date(endDate),
       },
       dataset: {
-        granularity: 'None',
+        granularity: AZURE_GRANULARITY_NONE,
         aggregation: {
-          totalCost: { name: 'Cost', function: 'Sum' },
+          totalCost: {
+            name: AZURE_COST_AGGREGATION_NAME,
+            function: AZURE_COST_AGGREGATION_FUNCTION,
+          },
         },
-        grouping: [{ type: 'Dimension', name: grouping }],
+        grouping: [{ type: AZURE_GROUPING_TYPE, name: grouping }],
       },
     });
 
     const columns = result.columns || [];
-    const costIdx = columns.findIndex((c) => c.name === 'Cost');
+    const costIdx = columns.findIndex((c) => c.name === AZURE_COST_AGGREGATION_NAME);
     const nameIdx = columns.findIndex((c) => c.name === grouping);
     const currencyIdx = columns.findIndex((c) => c.name === 'Currency');
 
-    const rows: AzureCostRow[] = (result.rows || []).map((row: unknown[]) => ({
-      serviceName: String(row[nameIdx]),
+    const rows = (result.rows || []).map((row: unknown[]) => ({
+      name: String(row[nameIdx]),
       cost: Number(row[costIdx]),
-      currency: String(row[currencyIdx] || 'USD'),
+      currency: String(row[currencyIdx] || DEFAULT_CURRENCY),
     }));
 
     return {
-      rows,
-      currency: rows[0]?.currency || 'USD',
+      rows: rows.map((r) => ({ name: r.name, cost: r.cost })),
+      currency: rows[0]?.currency || DEFAULT_CURRENCY,
     };
   }
 
-  async forecastCosts(startDate: string, endDate: string): Promise<AzureForecastResult> {
+  async forecastCosts(startDate: string, endDate: string): Promise<ForecastResult> {
     const result = await this.costClient.forecast.usage(this.scope, {
-      type: 'ActualCost',
+      type: AZURE_COST_TYPE,
       timeframe: 'Custom',
       timePeriod: {
         from: new Date(startDate),
@@ -85,37 +94,42 @@ export class AzureCostClient {
       includeActualCost: true,
       includeFreshPartialCost: false,
       dataset: {
-        granularity: 'Daily',
+        granularity: AZURE_GRANULARITY_DAILY,
         aggregation: {
-          totalCost: { name: 'Cost', function: 'Sum' },
+          totalCost: {
+            name: AZURE_COST_AGGREGATION_NAME,
+            function: AZURE_COST_AGGREGATION_FUNCTION,
+          },
         },
       },
     });
 
     const columns = result.columns || [];
-    const costIdx = columns.findIndex((c) => c.name === 'Cost');
+    const costIdx = columns.findIndex((c) => c.name === AZURE_COST_AGGREGATION_NAME);
     const dateIdx = columns.findIndex((c) => c.name === 'UsageDate');
     const typeIdx = columns.findIndex((c) => c.name === 'CostStatus');
     const currencyIdx = columns.findIndex((c) => c.name === 'Currency');
 
-    const rows: AzureForecastRow[] = (result.rows || []).map((row: unknown[]) => ({
+    const rows = (result.rows || []).map((row: unknown[]) => ({
       date: String(row[dateIdx]),
       cost: Number(row[costIdx]),
-      costType: String(row[typeIdx]) === 'Forecast' ? ('Forecast' as const) : ('Actual' as const),
-      currency: String(row[currencyIdx] || 'USD'),
+      costType: (String(row[typeIdx]) === COST_STATUS_FORECAST
+        ? COST_STATUS_FORECAST
+        : COST_STATUS_ACTUAL) as 'Forecast' | 'Actual',
+      currency: String(row[currencyIdx] || DEFAULT_CURRENCY),
     }));
 
     return {
-      rows,
-      currency: rows[0]?.currency || 'USD',
+      rows: rows.map((r) => ({ date: r.date, cost: r.cost, costType: r.costType })),
+      currency: rows[0]?.currency || DEFAULT_CURRENCY,
     };
   }
 
-  async getRecommendations(category?: string): Promise<AzureRecommendation[]> {
-    const recommendations: AzureRecommendation[] = [];
+  async getRecommendations(category?: string): Promise<Recommendation[]> {
+    const recommendations: Recommendation[] = [];
 
     for await (const rec of this.advisorClient.recommendations.list()) {
-      if (rec.category !== 'Cost') continue;
+      if (rec.category !== AZURE_COST_CATEGORY) continue;
       if (category && category !== 'all') {
         const desc = (rec.shortDescription?.solution || '').toLowerCase();
         if (!desc.includes(category)) continue;
@@ -123,14 +137,14 @@ export class AzureCostClient {
 
       recommendations.push({
         id: rec.id || '',
-        category: rec.category || 'Cost',
+        category: rec.category || AZURE_COST_CATEGORY,
         impact: rec.impact || 'Unknown',
         description:
           rec.shortDescription?.solution || rec.shortDescription?.problem || 'No description',
         savingsAmount: rec.extendedProperties?.['savingsAmount']
           ? parseFloat(rec.extendedProperties['savingsAmount'])
           : undefined,
-        savingsCurrency: rec.extendedProperties?.['savingsCurrency'] || 'USD',
+        savingsCurrency: rec.extendedProperties?.['savingsCurrency'] || DEFAULT_CURRENCY,
         resourceId: rec.resourceMetadata?.resourceId,
       });
     }
@@ -138,20 +152,29 @@ export class AzureCostClient {
     return recommendations;
   }
 
-  async listBudgets(): Promise<AzureBudget[]> {
-    const budgets: AzureBudget[] = [];
+  async listBudgets(): Promise<BudgetInfo[]> {
+    const budgets: BudgetInfo[] = [];
 
     for await (const budget of this.consumptionClient.budgets.list(this.scope)) {
       budgets.push({
         name: budget.name || 'Unnamed',
         amount: budget.amount || 0,
-        timeGrain: budget.timeGrain || 'Monthly',
         currentSpend: budget.currentSpend?.amount || 0,
         forecastSpend: budget.forecastSpend?.amount || 0,
-        currency: budget.currentSpend?.unit || 'USD',
+        currency: budget.currentSpend?.unit || DEFAULT_CURRENCY,
       });
     }
 
     return budgets;
+  }
+
+  async validate(): Promise<{ connected: boolean; detail: string }> {
+    try {
+      await this.listBudgets();
+      return { connected: true, detail: `subscription: ${this.subscriptionId}` };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return { connected: false, detail: message };
+    }
   }
 }
