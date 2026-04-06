@@ -77,7 +77,7 @@ describe('Edge cases', () => {
   });
 
   describe('start_date after end_date', () => {
-    it('get_cost_summary still calls Azure (API decides if it errors)', async () => {
+    it('get_cost_summary rejects with error before calling Azure', async () => {
       const client = makeAzureClient({
         queryCosts: vi.fn().mockResolvedValue({ rows: [], currency: 'USD' }),
       });
@@ -87,10 +87,9 @@ describe('Edge cases', () => {
         { azure: client as any },
       );
 
-      // Should still call the client — it's Azure's job to validate date ranges
-      expect(client.queryCosts).toHaveBeenCalledWith('2026-03-31', '2026-03-01', 'ServiceName');
-      // The handler doesn't crash — it returns a result (even if period days is negative)
-      expect(result.content[0].type).toBe('text');
+      expect(result.isError).toBe(true);
+      expect(result.content[0].text).toContain('after');
+      expect(client.queryCosts).not.toHaveBeenCalled();
     });
   });
 

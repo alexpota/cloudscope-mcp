@@ -1,5 +1,6 @@
 import { formatMoney } from '../utils/formatter.js';
 import { ProviderNotConfiguredError } from '../utils/errors.js';
+import { validateDateRange } from '../utils/dates.js';
 import type { Providers } from './cost-summary.js';
 import type { CostGrouping } from '../providers/azure/types.js';
 import { toolResult, toolError, type ToolResult } from './types.js';
@@ -24,6 +25,11 @@ export async function handleComparePeriods(
 ): Promise<ToolResult> {
   try {
     if (!providers.azure) throw new ProviderNotConfiguredError();
+
+    const errA = validateDateRange(input.period_a_start, input.period_a_end);
+    if (errA) return toolError(new Error(`Period A: ${errA}`));
+    const errB = validateDateRange(input.period_b_start, input.period_b_end);
+    if (errB) return toolError(new Error(`Period B: ${errB}`));
 
     const grouping = GROUP_BY_MAP[input.group_by] || 'ServiceName';
 

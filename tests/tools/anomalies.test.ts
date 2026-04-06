@@ -6,7 +6,7 @@ const mockAzureClient = {
 };
 
 describe('handleDetectAnomalies', () => {
-  it('detects services with cost increases above threshold', async () => {
+  it('shows dollar amount and percentage for each anomaly', async () => {
     mockAzureClient.queryCosts.mockResolvedValueOnce({
       rows: [
         { serviceName: 'Virtual Machines', cost: 500, currency: 'USD' },
@@ -29,8 +29,9 @@ describe('handleDetectAnomalies', () => {
 
     const text = result.content[0].text;
     expect(text).toContain('Virtual Machines');
-    expect(text).toContain('66.7%');
+    expect(text).toContain('$200.00 increase (up 66.7%)');
     expect(text).toContain('Storage');
+    expect(text).toContain('$20.00 increase (up 20.0%)');
   });
 
   it('reports no anomalies when all changes are below threshold', async () => {

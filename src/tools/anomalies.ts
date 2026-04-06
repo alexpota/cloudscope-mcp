@@ -9,6 +9,8 @@ interface AnomaliesInput {
   threshold: number;
 }
 
+const MS_PER_DAY = 86400000;
+
 export async function handleDetectAnomalies(
   input: AnomaliesInput,
   providers: Providers,
@@ -18,11 +20,11 @@ export async function handleDetectAnomalies(
 
     const now = new Date();
     const currentEnd = now.toISOString().split('T')[0];
-    const currentStart = new Date(now.getTime() - input.days * 86400000)
+    const currentStart = new Date(now.getTime() - input.days * MS_PER_DAY)
       .toISOString()
       .split('T')[0];
     const previousEnd = currentStart;
-    const previousStart = new Date(now.getTime() - input.days * 2 * 86400000)
+    const previousStart = new Date(now.getTime() - input.days * 2 * MS_PER_DAY)
       .toISOString()
       .split('T')[0];
 
@@ -62,20 +64,19 @@ export async function handleDetectAnomalies(
     lines.push(`Threshold: >${input.threshold}% increase`);
     lines.push('');
     lines.push(
-      `${'Service'.padEnd(30)} | ${'Current'.padStart(12)} | ${'Previous'.padStart(12)} | ${'Change'.padStart(18)}`,
+      `${'Service'.padEnd(30)} | ${'Current'.padStart(12)} | ${'Previous'.padStart(12)} | ${'Change'.padStart(28)}`,
     );
-    lines.push(`${'-'.repeat(30)}-|-${'-'.repeat(12)}-|-${'-'.repeat(12)}-|-${'-'.repeat(18)}`);
+    lines.push(`${'-'.repeat(30)}-|-${'-'.repeat(12)}-|-${'-'.repeat(12)}-|-${'-'.repeat(28)}`);
 
     for (const a of anomalies) {
+      const changeStr = `${formatMoney(a.change, 'USD')} increase (up ${a.pctChange.toFixed(1)}%)`;
       lines.push(
-        `${a.service.padEnd(30)} | ${formatMoney(a.currentCost, 'USD').padStart(12)} | ${formatMoney(a.previousCost, 'USD').padStart(12)} | +${a.pctChange.toFixed(1)}% (${formatMoney(a.change, 'USD')})`,
+        `${a.service.padEnd(30)} | ${formatMoney(a.currentCost, 'USD').padStart(12)} | ${formatMoney(a.previousCost, 'USD').padStart(12)} | ${changeStr}`,
       );
     }
 
     lines.push('');
-    lines.push(
-      `${anomalies.length} service(s) with spending increases above ${input.threshold}%.`,
-    );
+    lines.push(`${anomalies.length} service(s) with spending increases above ${input.threshold}%.`);
 
     return toolResult(lines.join('\n'));
   } catch (error) {

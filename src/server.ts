@@ -12,6 +12,16 @@ import { handleComparePeriods } from './tools/compare.js';
 import { handleTopSpendingResources } from './tools/top-spenders.js';
 import { handleGetCurrentDate } from './tools/current-date.js';
 import type { ToolResult } from './tools/types.js';
+import {
+  PACKAGE_NAME,
+  PACKAGE_VERSION,
+  DEFAULT_ANOMALY_DAYS,
+  DEFAULT_ANOMALY_THRESHOLD,
+  DEFAULT_FORECAST_DAYS,
+  DEFAULT_TOP_RESOURCES_LIMIT,
+  DEFAULT_TOP_RESOURCES_DAYS,
+  MAX_CACHE_ENTRIES,
+} from './constants.js';
 
 export function createServer(): McpServer {
   const config = getConfig();
@@ -20,28 +30,30 @@ export function createServer(): McpServer {
     azure: config.azure ? new AzureCostClient(config.azure) : null,
   };
 
-  const cache = new Cache<ToolResult>(config.cacheTtlSeconds);
+  const cache = new Cache<ToolResult>(config.cacheTtlSeconds, MAX_CACHE_ENTRIES);
 
   const server = new McpServer({
-    name: 'cloudscope-mcp',
-    version: '0.1.0',
+    name: PACKAGE_NAME,
+    version: PACKAGE_VERSION,
   });
 
-  // Tool 1: get_cost_summary
   server.registerTool(
     'get_cost_summary',
     {
       title: 'Cloud Cost Summary',
       description:
-        'Get cloud spending breakdown by service, resource group, or tag for any date range',
+        'Get cloud spending breakdown by service, resource group, or region for a date range. Defaults to current month if dates omitted.',
       inputSchema: {
         provider: z.literal('azure').describe('Cloud provider to query'),
-        start_date: z.string().describe('Start date (YYYY-MM-DD)'),
-        end_date: z.string().describe('End date (YYYY-MM-DD)'),
+        start_date: z
+          .string()
+          .optional()
+          .describe('Start date (YYYY-MM-DD). Defaults to first of current month.'),
+        end_date: z.string().optional().describe('End date (YYYY-MM-DD). Defaults to today.'),
         group_by: z
           .enum(['service', 'resource_group', 'tag', 'region'])
           .default('service')
-          .describe('How to group costs'),
+          .describe('How to group costs: service, resource_group, tag, or region'),
       },
     },
     async (input) => {
@@ -55,16 +67,21 @@ export function createServer(): McpServer {
     },
   );
 
-  // Tool 2: detect_anomalies
   server.registerTool(
     'detect_anomalies',
     {
       title: 'Detect Cost Anomalies',
-      description: 'Find spending spikes by comparing current period to previous period',
+      description: 'Find spending spikes by comparing the last N days to the N days before that',
       inputSchema: {
         provider: z.literal('azure').describe('Cloud provider to query'),
-        days: z.number().default(7).describe('Compare last N days to N days before that'),
-        threshold: z.number().default(20).describe('Percentage increase to flag as anomaly'),
+        days: z
+          .number()
+          .default(DEFAULT_ANOMALY_DAYS)
+          .describe('Number of days to compare (default: 7)'),
+        threshold: z
+          .number()
+          .default(DEFAULT_ANOMALY_THRESHOLD)
+          .describe('Minimum percentage increase to flag (default: 20)'),
       },
     },
     async (input) => {
@@ -78,18 +95,17 @@ export function createServer(): McpServer {
     },
   );
 
-  // Tool 3: list_recommendations
   server.registerTool(
     'list_recommendations',
     {
       title: 'Cost Optimization Recommendations',
-      description: 'Get cost optimization recommendations from the cloud provider',
+      description: 'Get cost-saving recommendations from Azure Advisor',
       inputSchema: {
         provider: z.literal('azure').describe('Cloud provider to query'),
         category: z
           .enum(['all', 'compute', 'storage', 'networking'])
           .default('all')
-          .describe('Filter recommendations by category'),
+          .describe('Filter by category: all, compute, storage, or networking'),
       },
     },
     async (input) => {
@@ -103,15 +119,17 @@ export function createServer(): McpServer {
     },
   );
 
-  // Tool 4: get_cost_forecast
   server.registerTool(
     'get_cost_forecast',
     {
       title: 'Cost Forecast',
-      description: 'Predict cloud spending for the next N days using the forecast API',
+      description: 'Predict cloud spending for the next N days based on current trends',
       inputSchema: {
         provider: z.literal('azure').describe('Cloud provider to query'),
-        days: z.number().default(30).describe('Number of days to forecast'),
+        days: z
+          .number()
+          .default(DEFAULT_FORECAST_DAYS)
+          .describe('Number of days to forecast (default: 30)'),
       },
     },
     async (input) => {
@@ -125,12 +143,12 @@ export function createServer(): McpServer {
     },
   );
 
-  // Tool 5: check_budgets
   server.registerTool(
     'check_budgets',
     {
       title: 'Budget Status',
-      description: 'Check budget status with current spend, limit, and projected overage',
+      description:
+        'Check Azure budget status: current spend vs limit, percentage used, forecast, and overage risk',
       inputSchema: {
         provider: z.literal('azure').describe('Cloud provider to query'),
       },
@@ -146,12 +164,12 @@ export function createServer(): McpServer {
     },
   );
 
-  // Tool 6: compare_periods
   server.registerTool(
     'compare_periods',
     {
       title: 'Compare Cost Periods',
-      description: 'Compare costs between two time periods with absolute and percentage changes',
+      description:
+        'Compare costs between two date ranges, showing per-service absolute and percentage changes',
       inputSchema: {
         provider: z.literal('azure').describe('Cloud provider to query'),
         period_a_start: z.string().describe('Period A start date (YYYY-MM-DD)'),
@@ -161,7 +179,7 @@ export function createServer(): McpServer {
         group_by: z
           .enum(['service', 'resource_group'])
           .default('service')
-          .describe('How to group costs'),
+          .describe('How to group costs: service or resource_group'),
       },
     },
     async (input) => {
@@ -175,16 +193,21 @@ export function createServer(): McpServer {
     },
   );
 
-  // Tool 7: top_spending_resources
   server.registerTool(
     'top_spending_resources',
     {
       title: 'Top Spending Resources',
-      description: 'Find the most expensive individual resources',
+      description: 'Find the N most expensive individual Azure resources over a time period',
       inputSchema: {
         provider: z.literal('azure').describe('Cloud provider to query'),
-        days: z.number().default(30).describe('Number of days to look back'),
-        limit: z.number().default(10).describe('Number of resources to return'),
+        days: z
+          .number()
+          .default(DEFAULT_TOP_RESOURCES_DAYS)
+          .describe('Number of days to look back (default: 30)'),
+        limit: z
+          .number()
+          .default(DEFAULT_TOP_RESOURCES_LIMIT)
+          .describe('Number of resources to return (default: 10)'),
       },
     },
     async (input) => {
@@ -198,13 +221,12 @@ export function createServer(): McpServer {
     },
   );
 
-  // Tool 8: get_current_date
   server.registerTool(
     'get_current_date',
     {
       title: 'Current Date',
       description:
-        "Get today's date and current/previous month boundaries for accurate date parameters",
+        "Returns today's date and the start/end of current and previous months in YYYY-MM-DD format",
       inputSchema: {},
     },
     () => {

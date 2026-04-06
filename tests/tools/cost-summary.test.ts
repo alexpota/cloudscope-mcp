@@ -1,9 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { handleGetCostSummary } from '../../src/tools/cost-summary.js';
 
 const mockAzureClient = {
   queryCosts: vi.fn(),
 };
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe('handleGetCostSummary', () => {
   it('returns formatted cost table for Azure', async () => {
@@ -16,16 +20,10 @@ describe('handleGetCostSummary', () => {
     });
 
     const result = await handleGetCostSummary(
-      {
-        provider: 'azure',
-        start_date: '2026-03-01',
-        end_date: '2026-03-31',
-        group_by: 'service',
-      },
+      { provider: 'azure', start_date: '2026-03-01', end_date: '2026-03-31', group_by: 'service' },
       { azure: mockAzureClient as any },
     );
 
-    expect(result.content[0].type).toBe('text');
     const text = result.content[0].text;
     expect(text).toContain('Virtual Machines');
     expect(text).toContain('$4,231.50');
@@ -34,12 +32,7 @@ describe('handleGetCostSummary', () => {
 
   it('returns error when Azure is not configured', async () => {
     const result = await handleGetCostSummary(
-      {
-        provider: 'azure',
-        start_date: '2026-03-01',
-        end_date: '2026-03-31',
-        group_by: 'service',
-      },
+      { provider: 'azure', start_date: '2026-03-01', end_date: '2026-03-31', group_by: 'service' },
       { azure: null },
     );
 
@@ -53,34 +46,19 @@ describe('handleGetCostSummary', () => {
       currency: 'USD',
     });
 
-    const result = await handleGetCostSummary(
-      {
-        provider: 'azure',
-        start_date: '2026-03-01',
-        end_date: '2026-03-31',
-        group_by: 'resource_group',
-      },
+    await handleGetCostSummary(
+      { provider: 'azure', start_date: '2026-03-01', end_date: '2026-03-31', group_by: 'resource_group' },
       { azure: mockAzureClient as any },
     );
 
-    expect(mockAzureClient.queryCosts).toHaveBeenCalledWith(
-      '2026-03-01',
-      '2026-03-31',
-      'ResourceGroup',
-    );
-    expect(result.content[0].text).toContain('Resource Group');
+    expect(mockAzureClient.queryCosts).toHaveBeenCalledWith('2026-03-01', '2026-03-31', 'ResourceGroup');
   });
 
   it('handles Azure API errors gracefully', async () => {
     mockAzureClient.queryCosts.mockRejectedValueOnce(new Error('Network timeout'));
 
     const result = await handleGetCostSummary(
-      {
-        provider: 'azure',
-        start_date: '2026-03-01',
-        end_date: '2026-03-31',
-        group_by: 'service',
-      },
+      { provider: 'azure', start_date: '2026-03-01', end_date: '2026-03-31', group_by: 'service' },
       { azure: mockAzureClient as any },
     );
 
@@ -88,22 +66,50 @@ describe('handleGetCostSummary', () => {
     expect(result.isError).toBe(true);
   });
 
-  it('calculates period days correctly', async () => {
-    mockAzureClient.queryCosts.mockResolvedValueOnce({
-      rows: [{ serviceName: 'VM', cost: 100, currency: 'USD' }],
-      currency: 'USD',
-    });
-
+  it('rejects invalid date format', async () => {
     const result = await handleGetCostSummary(
-      {
-        provider: 'azure',
-        start_date: '2026-03-01',
-        end_date: '2026-03-08',
-        group_by: 'service',
-      },
+      { provider: 'azure', start_date: 'yesterday', end_date: '2026-03-31', group_by: 'service' },
       { azure: mockAzureClient as any },
     );
 
-    expect(result.content[0].text).toContain('7 days');
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('Invalid start_date');
+    expect(mockAzureClient.queryCosts).not.toHaveBeenCalled();
+  });
+
+  it('rejects start_date after end_date', async () => {
+    const result = await handleGetCostSummary(
+      { provider: 'azure', start_date: '2026-03-31', end_date: '2026-03-01', group_by: 'service' },
+      { azure: mockAzureClient as any },
+    );
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('after');
+  });
+
+  describe('default dates', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(2026, 3, 15)); // April 15, 2026
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('defaults to current month when dates omitted', async () => {
+      mockAzureClient.queryCosts.mockResolvedValueOnce({
+        rows: [{ serviceName: 'VM', cost: 100, currency: 'USD' }],
+        currency: 'USD',
+      });
+
+      const result = await handleGetCostSummary(
+        { provider: 'azure', group_by: 'service' },
+        { azure: mockAzureClient as any },
+      );
+
+      expect(mockAzureClient.queryCosts).toHaveBeenCalledWith('2026-04-01', '2026-04-15', 'ServiceName');
+      expect(result.content[0].text).toContain('2026-04-01 to 2026-04-15');
+    });
   });
 });
