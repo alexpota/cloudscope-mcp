@@ -42,7 +42,7 @@ export function createServer(): McpServer {
     {
       title: 'Cloud Cost Summary',
       description:
-        'Get cloud spending breakdown by service, resource group, or region for a date range. Defaults to current month if dates omitted.',
+        'Returns a cost breakdown for a date range grouped by service, resource group, tag, or region. Defaults to current month if dates are omitted. Output includes a sorted table with each group name, cost in USD, and percentage of total. Includes a total row, daily average, and collapses groups beyond the top 10 into an "Other" row. Returns an error if the date range is invalid. Use this when the user asks "how much am I spending", "what costs the most", "show me my Azure bill", or wants a spending overview.',
       inputSchema: {
         provider: z.literal('azure').describe('Cloud provider to query'),
         start_date: z
@@ -71,7 +71,8 @@ export function createServer(): McpServer {
     'detect_anomalies',
     {
       title: 'Detect Cost Anomalies',
-      description: 'Find spending spikes by comparing the last N days to the N days before that',
+      description:
+        'Compares daily spending over the last N days against the prior N days to find cost spikes. Returns a list of services where spending increased above the threshold percentage, sorted by increase amount. Each entry includes service name, previous average, current average, percentage change, and absolute change in USD. Returns an empty list if no anomalies found. Use this when the user asks about unexpected cost increases, billing surprises, or wants to know if anything changed recently.',
       inputSchema: {
         provider: z.literal('azure').describe('Cloud provider to query'),
         days: z
@@ -99,7 +100,8 @@ export function createServer(): McpServer {
     'list_recommendations',
     {
       title: 'Cost Optimization Recommendations',
-      description: 'Get cost-saving recommendations from Azure Advisor',
+      description:
+        'Fetches cost-saving recommendations from Azure Advisor filtered by category. Returns a list of recommendations each containing: title, category, impact level (high/medium/low), estimated annual savings in USD, affected resource ID, and a short description of the suggested action. Returns an empty list if no recommendations exist for the selected category. Use this when the user wants to reduce costs, find waste, or optimize resource usage.',
       inputSchema: {
         provider: z.literal('azure').describe('Cloud provider to query'),
         category: z
@@ -123,7 +125,8 @@ export function createServer(): McpServer {
     'get_cost_forecast',
     {
       title: 'Cost Forecast',
-      description: 'Predict cloud spending for the next N days based on current trends',
+      description:
+        'Projects future cloud spending for the next N days using a linear trend based on the last 30 days of actual costs. Returns the forecast period dates, projected total cost in USD, average daily projected cost, and the confidence basis (number of historical days used). Use this when the user asks "how much will I spend this month", wants to predict upcoming bills, or needs to plan budgets. Returns an error if insufficient historical data exists.',
       inputSchema: {
         provider: z.literal('azure').describe('Cloud provider to query'),
         days: z

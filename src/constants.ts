@@ -1,6 +1,8 @@
+declare const __PKG_VERSION__: string;
+
 // Package identity
 export const PACKAGE_NAME = 'cloudscope-mcp';
-export const PACKAGE_VERSION = '0.1.0';
+export const PACKAGE_VERSION: string = __PKG_VERSION__;
 
 // Tool defaults
 export const DEFAULT_ANOMALY_DAYS = 7;
