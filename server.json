@@ -1,0 +1,47 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.alexpota/cloudscope",
+  "description": "Cloud cost management MCP server for Azure: spending, forecasts, anomalies, budgets, advisor.",
+  "repository": {
+    "url": "https://github.com/alexpota/cloudscope-mcp",
+    "source": "github"
+  },
+  "version": "0.1.1",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "cloudscope-mcp",
+      "version": "0.1.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "AZURE_SUBSCRIPTION_ID",
+          "description": "Azure subscription ID to query for cost data.",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "AZURE_TENANT_ID",
+          "description": "Azure tenant ID for service principal authentication. Optional; falls back to DefaultAzureCredential (e.g. az login) if unset.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "AZURE_CLIENT_ID",
+          "description": "Service principal client ID. Optional; required only when using ClientSecretCredential.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "AZURE_CLIENT_SECRET",
+          "description": "Service principal client secret. Optional; required only when using ClientSecretCredential.",
+          "isRequired": false,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

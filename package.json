@@ -1,6 +1,7 @@
 {
   "name": "cloudscope-mcp",
   "version": "0.1.1",
+  "mcpName": "io.github.alexpota/cloudscope",
   "description": "Cloud cost management MCP server. Azure supported, GCP coming soon.",
   "type": "module",
   "bin": {
