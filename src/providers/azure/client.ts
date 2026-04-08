@@ -22,53 +22,12 @@ import {
   AZURE_RETRY_MAX_ATTEMPTS,
   AZURE_RETRY_BASE_DELAY_MS,
   AZURE_RETRY_MAX_DELAY_MS,
-  AZURE_THROTTLE_ERROR_CODES,
-  HTTP_STATUS_TOO_MANY_REQUESTS,
   DEFAULT_CURRENCY,
   COST_STATUS_FORECAST,
   COST_STATUS_ACTUAL,
 } from '../../constants.js';
 import { createRateLimiter, withRetry, type RateLimiter } from '../../utils/rate-limit.js';
-
-const DECIMAL_RADIX = 10;
-const MS_PER_SECOND = 1000;
-const RETRY_AFTER_HEADER = 'Retry-After';
-const RETRY_AFTER_MS_HEADER = 'retry-after-ms';
-
-interface AzureErrorLike {
-  statusCode?: number;
-  code?: string;
-  response?: {
-    headers?: {
-      get?: (name: string) => string | null | undefined;
-    };
-  };
-}
-
-export function isAzureThrottlingError(err: unknown): boolean {
-  const e = err as AzureErrorLike;
-  if (e?.statusCode === HTTP_STATUS_TOO_MANY_REQUESTS) return true;
-  if (e?.code !== undefined && AZURE_THROTTLE_ERROR_CODES.includes(e.code)) return true;
-  return false;
-}
-
-export function extractAzureRetryAfterMs(err: unknown): number | undefined {
-  const e = err as AzureErrorLike;
-  const get = e?.response?.headers?.get;
-  if (typeof get !== 'function') return undefined;
-  // Azure uses `Retry-After` (seconds) and `retry-after-ms` (milliseconds).
-  const retryAfter = get(RETRY_AFTER_HEADER);
-  if (retryAfter) {
-    const seconds = parseInt(retryAfter, DECIMAL_RADIX);
-    if (Number.isFinite(seconds)) return seconds * MS_PER_SECOND;
-  }
-  const retryAfterMs = get(RETRY_AFTER_MS_HEADER);
-  if (retryAfterMs) {
-    const ms = parseInt(retryAfterMs, DECIMAL_RADIX);
-    if (Number.isFinite(ms)) return ms;
-  }
-  return undefined;
-}
+import { isAzureThrottlingError } from './throttling.js';
 
 export class AzureCostClient implements CloudCostProvider {
   private costClient: CostManagementClient;
@@ -99,7 +58,6 @@ export class AzureCostClient implements CloudCostProvider {
   private async callAzure<T>(fn: () => Promise<T>): Promise<T> {
     return withRetry(() => this.rateLimiter.run(fn), {
       isRetryable: isAzureThrottlingError,
-      extractRetryAfterMs: extractAzureRetryAfterMs,
       maxAttempts: AZURE_RETRY_MAX_ATTEMPTS,
       baseDelayMs: AZURE_RETRY_BASE_DELAY_MS,
       maxDelayMs: AZURE_RETRY_MAX_DELAY_MS,
