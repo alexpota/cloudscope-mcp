@@ -41,7 +41,7 @@ describe('handleCheckBudgets', () => {
     expect(text).toContain('2 budget(s)');
   });
 
-  it('shows projected overage when forecast exceeds total budget', async () => {
+  it('marks a budget as OVER when its own forecast exceeds its own limit', async () => {
     mockAzureClient.listBudgets.mockResolvedValueOnce([
       {
         name: 'Main',
@@ -59,8 +59,45 @@ describe('handleCheckBudgets', () => {
     );
 
     const text = result.content[0].text;
-    expect(text).toContain('Projected overage');
-    expect(text).toContain('$1,000.00');
+    expect(text).toContain('Main');
+    expect(text).toContain('OVER');
+  });
+
+  it('does not sum currentSpend across multiple budgets (avoids double-counting overlapping scopes)', async () => {
+    // Two budgets tracking the same subscription each report $0.31; summing
+    // them would produce a phantom $0.62. Reproduces the real-world bug.
+    mockAzureClient.listBudgets.mockResolvedValueOnce([
+      {
+        name: 'test-budget',
+        amount: 10,
+        timeGrain: 'Monthly',
+        currentSpend: 0.31,
+        forecastSpend: 0,
+        currency: 'USD',
+      },
+      {
+        name: 'production-budget',
+        amount: 200,
+        timeGrain: 'Monthly',
+        currentSpend: 0.31,
+        forecastSpend: 0,
+        currency: 'USD',
+      },
+    ]);
+
+    const result = await handleCheckBudgets(
+      { provider: 'azure' },
+      { azure: mockAzureClient as any },
+    );
+
+    const text = result.content[0].text;
+
+    expect(text).toContain('test-budget');
+    expect(text).toContain('production-budget');
+    expect(text).toContain('$0.31');
+    expect(text).not.toContain('$0.62');
+    expect(text).not.toMatch(/Total spent/);
+    expect(text).not.toMatch(/Total forecast/);
   });
 
   it('returns message when no budgets exist', async () => {
