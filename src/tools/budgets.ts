@@ -5,7 +5,6 @@ import {
   BUDGET_RISK_HIGH_THRESHOLD,
   BUDGET_RISK_WARN_THRESHOLD,
   BUDGET_RISK_LABELS,
-  DEFAULT_CURRENCY,
 } from '../constants.js';
 
 interface BudgetsInput {
@@ -52,24 +51,10 @@ export async function handleCheckBudgets(
       alignRight: [1, 2, 3, 4],
     });
 
-    const totalLimit = budgets.reduce((sum, b) => sum + b.amount, 0);
-    const totalSpent = budgets.reduce((sum, b) => sum + b.currentSpend, 0);
-    const totalForecast = budgets.reduce((sum, b) => sum + b.forecastSpend, 0);
-    const currency = budgets[0]?.currency || DEFAULT_CURRENCY;
-
-    const lines = [
-      `Budget Status (${budgets.length} budget(s))`,
-      '',
-      table,
-      '',
-      `Total budget: ${formatMoney(totalLimit, currency)}`,
-      `Total spent: ${formatMoney(totalSpent, currency)}`,
-      `Total forecast: ${formatMoney(totalForecast, currency)}`,
-    ];
-
-    if (totalForecast > totalLimit) {
-      lines.push(`Projected overage: ${formatMoney(totalForecast - totalLimit, currency)}`);
-    }
+    // No aggregate "Total spent" / "Total forecast" rows: Azure budgets can
+    // have overlapping scopes, and `BudgetInfo` doesn't expose filters, so
+    // summing would double-count. Each row carries its own risk label.
+    const lines = [`Budget Status (${budgets.length} budget(s))`, '', table];
 
     return toolResult(lines.join('\n'));
   });
