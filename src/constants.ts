@@ -23,6 +23,19 @@ export const GROUP_BY_MAP: Record<string, string> = {
   region: 'ResourceLocation',
 };
 
+export const HTTP_STATUS_TOO_MANY_REQUESTS = 429;
+
+// Azure SDK surfaces 429 as either `statusCode: 429` or these `code` values.
+export const AZURE_THROTTLE_ERROR_CODES: readonly string[] = ['TooManyRequests', '429'];
+
+// Cost Management API returns bare 429s (no Retry-After) under burst load,
+// which the Azure SDK's default retry policy does not handle. We compensate
+// with our own concurrency limit + bounded retry loop (see utils/rate-limit).
+export const AZURE_COST_MANAGEMENT_CONCURRENCY = 2;
+export const AZURE_RETRY_MAX_ATTEMPTS = 3;
+export const AZURE_RETRY_BASE_DELAY_MS = 1000;
+export const AZURE_RETRY_MAX_DELAY_MS = 4000;
+
 // Azure Cost Management API
 export const AZURE_COST_TYPE = 'ActualCost';
 export const AZURE_COST_AGGREGATION_NAME = 'Cost';
