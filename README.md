@@ -3,6 +3,7 @@
 > Ask your AI about your cloud bill.
 
 [![npm version](https://img.shields.io/npm/v/cloudscope-mcp)](https://www.npmjs.com/package/cloudscope-mcp)
+[![MCP Registry](https://img.shields.io/badge/MCP%20Registry-io.github.alexpota%2Fcloudscope-blue)](https://registry.modelcontextprotocol.io/v0/servers?search=cloudscope)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](https://www.typescriptlang.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
