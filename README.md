@@ -3,6 +3,7 @@
 > Ask your AI about your cloud bill.
 
 [![npm version](https://img.shields.io/npm/v/cloudscope-mcp)](https://www.npmjs.com/package/cloudscope-mcp)
+[![MCP Registry](https://img.shields.io/badge/MCP%20Registry-io.github.alexpota%2Fcloudscope-blue)](https://registry.modelcontextprotocol.io/v0/servers?search=cloudscope)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](https://nodejs.org)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](https://www.typescriptlang.org)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -15,7 +16,7 @@
 
 ## What It Does
 
-CloudScope gives AI assistants read-only access to your Azure cost data. Ask about spending, find anomalies, get optimization recommendations, and forecast next month's bill — all through natural language.
+CloudScope gives AI assistants read-only access to your Azure cost data. Ask about spending, find anomalies, get optimization recommendations, and forecast next month's bill — all through natural language. Includes four guided-workflow prompts for common tasks (monthly reviews, waste audits, spike investigations, executive summaries).
 
 ## Supported Providers
 
@@ -77,7 +78,18 @@ Set these alongside `AZURE_SUBSCRIPTION_ID` in the `env` block above.
 | `top_spending_resources`   | Most expensive individual resources             | `days`, `limit`                             |
 | `get_current_date`         | Today's date and current/previous month bounds  | _(none)_                                    |
 
-## Example Prompts
+## Prompts
+
+Guided workflows selectable as slash commands in MCP-aware clients (Claude Desktop, Cursor, Windsurf, etc.). Pick one and the LLM orchestrates the right tools to produce a structured report.
+
+| Prompt                        | Description                                                                    | Arguments                       |
+|-------------------------------|--------------------------------------------------------------------------------|---------------------------------|
+| `/monthly-cost-review`        | Complete monthly review: spending, last-month comparison, anomalies, top resources, budgets, forecast, savings opportunities | _(none)_                        |
+| `/waste-audit`                | Find wasted spend: top expensive resources, Azure Advisor recommendations, at-risk budgets, total potential savings | _(none)_                        |
+| `/cost-spike-investigation`   | Root-cause analysis for a cost increase: which services, which resources, trend vs one-time, recommended actions | `days` (optional, default `7`)  |
+| `/executive-summary`          | Brief non-technical cost summary for leadership: spend, trend, budget status, top drivers, forecast, key recommendation | _(none)_                        |
+
+## Example Questions
 
 - "How much did Azure cost last month?"
 - "Show spending by resource group for the last 7 days"

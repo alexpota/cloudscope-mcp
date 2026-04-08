@@ -11,6 +11,7 @@ import { handleCheckBudgets } from './tools/budgets.js';
 import { handleComparePeriods } from './tools/compare.js';
 import { handleTopSpendingResources } from './tools/top-spenders.js';
 import { handleGetCurrentDate } from './tools/current-date.js';
+import { registerPrompts } from './prompts/index.js';
 import type { ToolResult, Providers } from './tools/types.js';
 import {
   PACKAGE_NAME,
@@ -32,10 +33,17 @@ export function createServer(): McpServer {
 
   const cache = new Cache<ToolResult>(config.cacheTtlSeconds, MAX_CACHE_ENTRIES);
 
-  const server = new McpServer({
-    name: PACKAGE_NAME,
-    version: PACKAGE_VERSION,
-  });
+  const server = new McpServer(
+    { name: PACKAGE_NAME, version: PACKAGE_VERSION },
+    {
+      instructions:
+        'CloudScope provides read-only access to Azure cost data. ' +
+        'Call get_current_date before any date-dependent tool if the current date is unclear — LLMs frequently hallucinate dates. ' +
+        'For investigating cost increases, combine detect_anomalies with top_spending_resources to identify both the service and the specific resource. ' +
+        'list_recommendations returns Azure Advisor suggestions — pair with check_budgets to prioritize savings for at-risk budgets. ' +
+        'All costs are in USD. All dates use YYYY-MM-DD format.',
+    },
+  );
 
   server.registerTool(
     'get_cost_summary',
@@ -236,6 +244,8 @@ export function createServer(): McpServer {
       return handleGetCurrentDate();
     },
   );
+
+  registerPrompts(server);
 
   return server;
 }
