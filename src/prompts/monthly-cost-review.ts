@@ -5,11 +5,12 @@ const PROMPT_TEXT = `I need a complete monthly cost review for my Azure subscrip
 1. Current month spending broken down by service
 2. Comparison to last month with absolute and percentage changes
 3. Cost anomalies or unexpected spikes in the last week
-4. Budget status and overage risk
-5. Projected spend for next month
-6. Top cost-saving opportunities
+4. Top 10 most expensive individual resources this month
+5. Budget status and overage risk
+6. Projected spend for next month
+7. Top cost-saving opportunities
 
-Use the available CloudScope tools to gather this data. If the current date is unclear, look it up first so the date ranges are accurate. Present the result as a structured markdown report with the six sections above as H2 headings, ending with a numbered "Action items" list ranked by potential savings impact.`;
+Use the available CloudScope tools to gather this data. If the current date is unclear, look it up first so the date ranges are accurate. Present the result as a structured markdown report with the sections above as H2 headings, ending with a numbered "Action items" list ranked by potential savings impact.`;
 
 export const registerMonthlyCostReviewPrompt = (server: McpServer): void => {
   server.registerPrompt(
