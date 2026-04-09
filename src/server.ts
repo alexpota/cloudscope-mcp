@@ -2,7 +2,6 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { getConfig } from './config.js';
 import { AzureCostClient } from './providers/azure/client.js';
-import { Cache } from './utils/cache.js';
 import { handleGetCostSummary } from './tools/cost-summary.js';
 import { handleDetectAnomalies } from './tools/anomalies.js';
 import { handleListRecommendations } from './tools/recommendations.js';
@@ -12,7 +11,7 @@ import { handleComparePeriods } from './tools/compare.js';
 import { handleTopSpendingResources } from './tools/top-spenders.js';
 import { handleGetCurrentDate } from './tools/current-date.js';
 import { registerPrompts } from './prompts/index.js';
-import type { ToolResult, Providers } from './tools/types.js';
+import type { Providers } from './tools/types.js';
 import {
   PACKAGE_NAME,
   PACKAGE_VERSION,
@@ -21,7 +20,6 @@ import {
   DEFAULT_FORECAST_DAYS,
   DEFAULT_TOP_RESOURCES_LIMIT,
   DEFAULT_TOP_RESOURCES_DAYS,
-  MAX_CACHE_ENTRIES,
 } from './constants.js';
 
 export function createServer(): McpServer {
@@ -30,8 +28,6 @@ export function createServer(): McpServer {
   const providers: Providers = {
     azure: config.azure ? new AzureCostClient(config.azure) : null,
   };
-
-  const cache = new Cache<ToolResult>(config.cacheTtlSeconds, MAX_CACHE_ENTRIES);
 
   const server = new McpServer(
     { name: PACKAGE_NAME, version: PACKAGE_VERSION },
@@ -64,15 +60,7 @@ export function createServer(): McpServer {
           .describe('How to group costs: service, resource_group, tag, or region'),
       },
     },
-    async (input) => {
-      const cacheKey = `cost_summary:${JSON.stringify(input)}`;
-      const cached = cache.get(cacheKey);
-      if (cached) return cached;
-
-      const result = await handleGetCostSummary(input, providers);
-      if (!result.isError) cache.set(cacheKey, result);
-      return result;
-    },
+    async (input) => handleGetCostSummary(input, providers),
   );
 
   server.registerTool(
@@ -93,15 +81,7 @@ export function createServer(): McpServer {
           .describe('Minimum percentage increase to flag (default: 20)'),
       },
     },
-    async (input) => {
-      const cacheKey = `anomalies:${JSON.stringify(input)}`;
-      const cached = cache.get(cacheKey);
-      if (cached) return cached;
-
-      const result = await handleDetectAnomalies(input, providers);
-      if (!result.isError) cache.set(cacheKey, result);
-      return result;
-    },
+    async (input) => handleDetectAnomalies(input, providers),
   );
 
   server.registerTool(
@@ -118,15 +98,7 @@ export function createServer(): McpServer {
           .describe('Filter by category: all, compute, storage, or networking'),
       },
     },
-    async (input) => {
-      const cacheKey = `recommendations:${JSON.stringify(input)}`;
-      const cached = cache.get(cacheKey);
-      if (cached) return cached;
-
-      const result = await handleListRecommendations(input, providers);
-      if (!result.isError) cache.set(cacheKey, result);
-      return result;
-    },
+    async (input) => handleListRecommendations(input, providers),
   );
 
   server.registerTool(
@@ -143,15 +115,7 @@ export function createServer(): McpServer {
           .describe('Number of days to forecast (default: 30)'),
       },
     },
-    async (input) => {
-      const cacheKey = `forecast:${JSON.stringify(input)}`;
-      const cached = cache.get(cacheKey);
-      if (cached) return cached;
-
-      const result = await handleGetCostForecast(input, providers);
-      if (!result.isError) cache.set(cacheKey, result);
-      return result;
-    },
+    async (input) => handleGetCostForecast(input, providers),
   );
 
   server.registerTool(
@@ -164,15 +128,7 @@ export function createServer(): McpServer {
         provider: z.literal('azure').describe('Cloud provider to query'),
       },
     },
-    async (input) => {
-      const cacheKey = `budgets:${JSON.stringify(input)}`;
-      const cached = cache.get(cacheKey);
-      if (cached) return cached;
-
-      const result = await handleCheckBudgets(input, providers);
-      if (!result.isError) cache.set(cacheKey, result);
-      return result;
-    },
+    async (input) => handleCheckBudgets(input, providers),
   );
 
   server.registerTool(
@@ -193,15 +149,7 @@ export function createServer(): McpServer {
           .describe('How to group costs: service or resource_group'),
       },
     },
-    async (input) => {
-      const cacheKey = `compare:${JSON.stringify(input)}`;
-      const cached = cache.get(cacheKey);
-      if (cached) return cached;
-
-      const result = await handleComparePeriods(input, providers);
-      if (!result.isError) cache.set(cacheKey, result);
-      return result;
-    },
+    async (input) => handleComparePeriods(input, providers),
   );
 
   server.registerTool(
@@ -221,15 +169,7 @@ export function createServer(): McpServer {
           .describe('Number of resources to return (default: 10)'),
       },
     },
-    async (input) => {
-      const cacheKey = `top_spenders:${JSON.stringify(input)}`;
-      const cached = cache.get(cacheKey);
-      if (cached) return cached;
-
-      const result = await handleTopSpendingResources(input, providers);
-      if (!result.isError) cache.set(cacheKey, result);
-      return result;
-    },
+    async (input) => handleTopSpendingResources(input, providers),
   );
 
   server.registerTool(

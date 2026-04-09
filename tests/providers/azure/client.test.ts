@@ -46,9 +46,24 @@ describe('AzureCostClient', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
 
-    // Reset mock defaults
-    mockUsage.mockResolvedValue({ columns: [], rows: [] });
-    mockForecastUsage.mockResolvedValue({ columns: [], rows: [] });
+    // Reset mock defaults — include valid columns so the column guards don't throw.
+    mockUsage.mockResolvedValue({
+      columns: [
+        { name: 'Cost', type: 'Number' },
+        { name: 'ServiceName', type: 'String' },
+        { name: 'Currency', type: 'String' },
+      ],
+      rows: [],
+    });
+    mockForecastUsage.mockResolvedValue({
+      columns: [
+        { name: 'Cost', type: 'Number' },
+        { name: 'UsageDate', type: 'Number' },
+        { name: 'CostStatus', type: 'String' },
+        { name: 'Currency', type: 'String' },
+      ],
+      rows: [],
+    });
     mockRecommendationsList.mockReturnValue({
       [Symbol.asyncIterator]: async function* () {},
     });
@@ -189,17 +204,12 @@ describe('AzureCostClient', () => {
       expect(result.currency).toBe('USD');
     });
 
-    it('handles missing columns and rows gracefully', async () => {
-      mockUsage.mockResolvedValueOnce({});
+    it('throws a descriptive error when response columns are missing', async () => {
+      mockUsage.mockResolvedValueOnce({ columns: [], rows: [] });
 
-      const result = await client.queryCosts(
-        '2026-03-01',
-        '2026-03-31',
-        'ServiceName',
-      );
-
-      expect(result.rows).toHaveLength(0);
-      expect(result.currency).toBe('USD');
+      await expect(
+        client.queryCosts('2026-03-01', '2026-03-31', 'ServiceName'),
+      ).rejects.toThrow('Azure response missing column');
     });
 
     it('supports ResourceGroup grouping', async () => {
@@ -294,16 +304,15 @@ describe('AzureCostClient', () => {
       });
     });
 
-    it('filters by category keyword when not "all"', async () => {
+    it('filters by impactedField resource type prefix when category is not "all"', async () => {
       mockRecommendationsList.mockReturnValue({
         [Symbol.asyncIterator]: async function* () {
           yield {
             id: 'rec-1',
             category: 'Cost',
             impact: 'High',
-            shortDescription: {
-              solution: 'Right-size compute instance',
-            },
+            impactedField: 'Microsoft.Compute/virtualMachines',
+            shortDescription: { solution: 'Right-size VM' },
             extendedProperties: {},
             resourceMetadata: {},
           };
@@ -311,9 +320,8 @@ describe('AzureCostClient', () => {
             id: 'rec-2',
             category: 'Cost',
             impact: 'Medium',
-            shortDescription: {
-              solution: 'Delete unused storage account',
-            },
+            impactedField: 'Microsoft.Storage/storageAccounts',
+            shortDescription: { solution: 'Delete unused storage account' },
             extendedProperties: {},
             resourceMetadata: {},
           };
@@ -323,7 +331,7 @@ describe('AzureCostClient', () => {
       const recs = await client.getRecommendations('compute');
 
       expect(recs).toHaveLength(1);
-      expect(recs[0].description).toBe('Right-size compute instance');
+      expect(recs[0].description).toBe('Right-size VM');
     });
 
     it('returns empty array when no Cost recommendations exist', async () => {
@@ -444,9 +452,14 @@ describe('AzureCostClient', () => {
       expect(result.currency).toBe('USD');
     });
 
-    it('handles empty forecast result', async () => {
+    it('returns empty rows when forecast has valid columns but no data', async () => {
       mockForecastUsage.mockResolvedValueOnce({
-        columns: [],
+        columns: [
+          { name: 'Cost', type: 'Number' },
+          { name: 'UsageDate', type: 'Number' },
+          { name: 'CostStatus', type: 'String' },
+          { name: 'Currency', type: 'String' },
+        ],
         rows: [],
       });
 
@@ -454,6 +467,14 @@ describe('AzureCostClient', () => {
 
       expect(result.rows).toHaveLength(0);
       expect(result.currency).toBe('USD');
+    });
+
+    it('throws a descriptive error when forecast columns are missing', async () => {
+      mockForecastUsage.mockResolvedValueOnce({ columns: [], rows: [] });
+
+      await expect(
+        client.forecastCosts('2026-04-01', '2026-04-30'),
+      ).rejects.toThrow('Azure response missing column');
     });
   });
 
@@ -502,6 +523,129 @@ describe('AzureCostClient', () => {
     it('returns empty array when no budgets exist', async () => {
       const budgets = await client.listBudgets();
       expect(budgets).toHaveLength(0);
+    });
+  });
+
+  describe('provider-level caching', () => {
+    const sampleCostResponse = {
+      columns: [
+        { name: 'Cost', type: 'Number' },
+        { name: 'ServiceName', type: 'String' },
+        { name: 'Currency', type: 'String' },
+      ],
+      rows: [[100, 'Redis Cache', 'USD']],
+    };
+
+    const sampleForecastResponse = {
+      columns: [
+        { name: 'Cost', type: 'Number' },
+        { name: 'UsageDate', type: 'Number' },
+        { name: 'CostStatus', type: 'String' },
+        { name: 'Currency', type: 'String' },
+      ],
+      rows: [[100, 20260401, 'Actual', 'USD']],
+    };
+
+    it('queryCosts hits the Azure SDK only once for identical sequential calls', async () => {
+      mockUsage.mockResolvedValue(sampleCostResponse);
+
+      await client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName');
+      await client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName');
+      await client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName');
+
+      expect(mockUsage).toHaveBeenCalledTimes(1);
+    });
+
+    it('queryCosts coalesces concurrent calls for identical args into a single SDK call', async () => {
+      mockUsage.mockResolvedValue(sampleCostResponse);
+
+      await Promise.all([
+        client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName'),
+        client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName'),
+        client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName'),
+      ]);
+
+      expect(mockUsage).toHaveBeenCalledTimes(1);
+    });
+
+    it('queryCosts treats different args as separate cache entries', async () => {
+      // Each grouping returns its own matching columns so the column guard passes.
+      mockUsage.mockResolvedValue({
+        columns: [
+          { name: 'Cost', type: 'Number' },
+          { name: 'ServiceName', type: 'String' },
+          { name: 'ResourceGroup', type: 'String' },
+          { name: 'Currency', type: 'String' },
+        ],
+        rows: [],
+      });
+
+      await client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName');
+      await client.queryCosts('2026-04-01', '2026-04-09', 'ResourceGroup');
+      await client.queryCosts('2026-03-01', '2026-03-31', 'ServiceName');
+
+      expect(mockUsage).toHaveBeenCalledTimes(3);
+    });
+
+    it('queryCosts does not cache an error — the next call retries', async () => {
+      mockUsage
+        .mockRejectedValueOnce(new Error('transient Azure failure'))
+        .mockResolvedValueOnce(sampleCostResponse);
+
+      await expect(
+        client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName'),
+      ).rejects.toThrow('transient Azure failure');
+
+      const result = await client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName');
+
+      expect(mockUsage).toHaveBeenCalledTimes(2);
+      expect(result.rows).toHaveLength(1);
+    });
+
+    it('forecastCosts caches identical calls', async () => {
+      mockForecastUsage.mockResolvedValue(sampleForecastResponse);
+
+      await client.forecastCosts('2026-04-01', '2026-04-30');
+      await client.forecastCosts('2026-04-01', '2026-04-30');
+
+      expect(mockForecastUsage).toHaveBeenCalledTimes(1);
+    });
+
+    it('listBudgets caches across repeated calls', async () => {
+      mockBudgetsList.mockReturnValue({
+        [Symbol.asyncIterator]: async function* () {
+          yield {
+            name: 'production',
+            amount: 200,
+            timeGrain: 'Monthly',
+            currentSpend: { amount: 0.31, unit: 'USD' },
+            forecastSpend: { amount: 0, unit: 'USD' },
+          };
+        },
+      });
+
+      await client.listBudgets();
+      await client.listBudgets();
+
+      expect(mockBudgetsList).toHaveBeenCalledTimes(1);
+    });
+
+    it('getRecommendations caches across repeated calls with the same category', async () => {
+      mockRecommendationsList.mockReturnValue({
+        [Symbol.asyncIterator]: async function* () {
+          yield {
+            id: 'rec-1',
+            category: 'Cost',
+            impact: 'High',
+            shortDescription: { solution: 'Right-size VM' },
+          };
+        },
+      });
+
+      await client.getRecommendations('all');
+      await client.getRecommendations('all');
+
+      expect(mockRecommendationsList).toHaveBeenCalledTimes(1);
     });
   });
 });

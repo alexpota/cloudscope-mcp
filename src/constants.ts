@@ -36,7 +36,20 @@ export const AZURE_RETRY_MAX_ATTEMPTS = 3;
 export const AZURE_RETRY_BASE_DELAY_MS = 1000;
 export const AZURE_RETRY_MAX_DELAY_MS = 4000;
 
+// Maps user-facing category enum → Azure resource type prefix in rec.impactedField.
+// "networking" ≠ "microsoft.network" without this mapping.
+export const ADVISOR_CATEGORY_RESOURCE_PREFIXES: Record<string, string> = {
+  compute: 'microsoft.compute',
+  storage: 'microsoft.storage',
+  networking: 'microsoft.network',
+};
+
 // Azure Cost Management API
+export const AZURE_TIMEFRAME_CUSTOM = 'Custom';
+export const AZURE_CURRENCY_COLUMN = 'Currency';
+export const AZURE_USAGE_DATE_COLUMN = 'UsageDate';
+export const AZURE_COST_STATUS_COLUMN = 'CostStatus';
+export const DEFAULT_BUDGET_NAME = 'Unnamed';
 export const AZURE_COST_TYPE = 'ActualCost';
 export const AZURE_COST_AGGREGATION_NAME = 'Cost';
 export const AZURE_COST_AGGREGATION_FUNCTION = 'Sum';

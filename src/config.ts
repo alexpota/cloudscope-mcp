@@ -1,5 +1,3 @@
-import { DEFAULT_CACHE_TTL_SECONDS } from './constants.js';
-
 export interface AzureConfig {
   tenantId: string;
   clientId: string;
@@ -9,23 +7,12 @@ export interface AzureConfig {
 
 export interface AppConfig {
   azure: AzureConfig | null;
-  cacheTtlSeconds: number;
-  logLevel: string;
 }
 
 export function getConfig(): AppConfig {
-  const azure = getAzureConfig();
   return {
-    azure,
-    cacheTtlSeconds: parseCacheTtl(process.env.CACHE_TTL_SECONDS),
-    logLevel: process.env.LOG_LEVEL || 'info',
+    azure: getAzureConfig(),
   };
-}
-
-function parseCacheTtl(value: string | undefined): number {
-  if (!value) return DEFAULT_CACHE_TTL_SECONDS;
-  const parsed = parseInt(value, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_CACHE_TTL_SECONDS;
 }
 
 function getAzureConfig(): AzureConfig | null {

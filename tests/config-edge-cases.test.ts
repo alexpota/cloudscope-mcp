@@ -21,30 +21,4 @@ describe('config edge cases', () => {
     expect(config.azure!.clientSecret).toBe('');
   });
 
-  it('non-numeric CACHE_TTL_SECONDS defaults to 300', async () => {
-    vi.stubEnv('CACHE_TTL_SECONDS', 'not-a-number');
-
-    const { getConfig } = await import('../src/config.js');
-    const config = getConfig();
-
-    expect(config.cacheTtlSeconds).toBe(300);
-  });
-
-  it('negative CACHE_TTL_SECONDS defaults to 300', async () => {
-    vi.stubEnv('CACHE_TTL_SECONDS', '-1');
-
-    const { getConfig } = await import('../src/config.js');
-    const config = getConfig();
-
-    expect(config.cacheTtlSeconds).toBe(300);
-  });
-
-  it('zero CACHE_TTL_SECONDS defaults to 300', async () => {
-    vi.stubEnv('CACHE_TTL_SECONDS', '0');
-
-    const { getConfig } = await import('../src/config.js');
-    const config = getConfig();
-
-    expect(config.cacheTtlSeconds).toBe(300);
-  });
 });
