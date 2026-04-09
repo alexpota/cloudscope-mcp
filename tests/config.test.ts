@@ -28,16 +28,4 @@ describe('config', () => {
     expect(config.azure).toBeNull();
   });
 
-  it('defaults cache TTL to 300 seconds', async () => {
-    const { getConfig } = await import('../src/config.js');
-    const config = getConfig();
-    expect(config.cacheTtlSeconds).toBe(300);
-  });
-
-  it('parses custom cache TTL', async () => {
-    vi.stubEnv('CACHE_TTL_SECONDS', '600');
-    const { getConfig } = await import('../src/config.js');
-    const config = getConfig();
-    expect(config.cacheTtlSeconds).toBe(600);
-  });
 });

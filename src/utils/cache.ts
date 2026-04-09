@@ -5,6 +5,7 @@ interface CacheEntry<T> {
 
 export class Cache<T> {
   private store = new Map<string, CacheEntry<T>>();
+  private inFlight = new Map<string, Promise<T>>();
 
   constructor(
     private ttlSeconds: number,
@@ -38,8 +39,37 @@ export class Cache<T> {
     });
   }
 
+  /**
+   * Returns the cached value for `key`, or invokes `fetch` and caches the
+   * result on success. Concurrent calls for the same key share a single
+   * in-flight fetch (request coalescing), so a burst of identical lookups
+   * hits the underlying data source only once. Errors are not cached and
+   * the in-flight tracker is cleared on both success and failure.
+   */
+  async getOrFetch(key: string, fetch: () => Promise<T>): Promise<T> {
+    const cached = this.get(key);
+    if (cached !== undefined) return cached;
+
+    const existing = this.inFlight.get(key);
+    if (existing) return existing;
+
+    const promise = (async () => {
+      try {
+        const value = await fetch();
+        this.set(key, value);
+        return value;
+      } finally {
+        this.inFlight.delete(key);
+      }
+    })();
+
+    this.inFlight.set(key, promise);
+    return promise;
+  }
+
   clear(): void {
     this.store.clear();
+    this.inFlight.clear();
   }
 
   size(): number {
