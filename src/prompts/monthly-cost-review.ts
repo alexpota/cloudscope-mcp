@@ -9,6 +9,7 @@ const PROMPT_TEXT = `I need a complete monthly cost review for my Azure subscrip
 5. Budget status and overage risk
 6. Projected spend for next month
 7. Top cost-saving opportunities
+8. Any idle or unused resources that could be cleaned up
 
 Use the available CloudScope tools to gather this data. If the current date is unclear, look it up first so the date ranges are accurate. Present the result as a structured markdown report with the sections above as H2 headings, ending with a numbered "Action items" list ranked by potential savings impact.`;
 

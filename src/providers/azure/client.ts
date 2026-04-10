@@ -43,6 +43,7 @@ import {
   IDLE_RESOURCE_REASONS,
   DEFAULT_IDLE_RESOURCE_COST_DAYS,
   AZURE_RESOURCE_ID_DIMENSION,
+  AZURE_TAG_VALUE_COLUMN,
   COST_STATUS_FORECAST,
   COST_STATUS_ACTUAL,
   GROUP_BY_MAP,
@@ -186,7 +187,7 @@ export class AzureCostClient implements CloudCostProvider {
 
       const columns = result.columns || [];
       const costIdx = requireColumn(columns, AZURE_COST_AGGREGATION_NAME);
-      const nameIdx = requireColumn(columns, tagKey);
+      const nameIdx = requireColumn(columns, AZURE_TAG_VALUE_COLUMN);
       const currencyIdx = columns.findIndex((c) => c.name === AZURE_CURRENCY_COLUMN);
 
       const rows = (result.rows || []).map((row: unknown[]) => ({

@@ -49,6 +49,10 @@ export async function createServer(): Promise<McpServer> {
         'Call get_current_date before any date-dependent tool if the current date is unclear — LLMs frequently hallucinate dates. ' +
         'For investigating cost increases, combine detect_anomalies with top_spending_resources to identify both the service and the specific resource. ' +
         'list_recommendations returns Azure Advisor suggestions — pair with check_budgets to prioritize savings for at-risk budgets. ' +
+        'find_idle_resources detects provisioned-but-unused resources (unattached disks, orphaned NICs, unused IPs, empty App Service plans) with cost estimates. ' +
+        'For cross-subscription queries, call list_subscriptions first to discover available subscriptions, then get_cross_subscription_costs to compare them. ' +
+        'get_cost_by_tag groups spending by any Azure tag key — useful for chargeback and cost allocation by team, environment, or project. ' +
+        'find_untagged_resources identifies resources missing tags, which creates cost attribution gaps. ' +
         'All costs are in USD. All dates use YYYY-MM-DD format.',
     },
   );

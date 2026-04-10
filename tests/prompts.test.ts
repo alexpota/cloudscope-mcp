@@ -36,13 +36,14 @@ describe('registerPrompts', () => {
     return call[1];
   };
 
-  it('registers exactly 4 prompts', () => {
-    expect(registerPromptSpy).toHaveBeenCalledTimes(4);
+  it('registers exactly 5 prompts', () => {
+    expect(registerPromptSpy).toHaveBeenCalledTimes(5);
   });
 
-  it('registers the 4 expected prompt names', () => {
+  it('registers the 5 expected prompt names', () => {
     const names = calls.map((c) => c[0]).sort();
     expect(names).toEqual([
+      'chargeback-report',
       'cost-spike-investigation',
       'executive-summary',
       'monthly-cost-review',
@@ -101,6 +102,32 @@ describe('registerPrompts', () => {
     it('includes the custom days value for a different sample', () => {
       const result = handlerFor('cost-spike-investigation')({ days: '30' });
       expect(result.messages[0]?.content.text).toContain('30');
+    });
+  });
+
+  describe('chargeback-report argument handling', () => {
+    it('declares a tag_key argument in argsSchema', () => {
+      const config = configFor('chargeback-report');
+      expect(config.argsSchema).toBeDefined();
+      expect(config.argsSchema).toHaveProperty('tag_key');
+    });
+
+    it('returns valid messages with role "user" and non-empty text', () => {
+      const result = handlerFor('chargeback-report')({ tag_key: 'team' });
+      expect(result.messages).toBeInstanceOf(Array);
+      expect(result.messages.length).toBeGreaterThan(0);
+      expect(result.messages[0].role).toBe('user');
+      expect(result.messages[0].content.text.length).toBeGreaterThan(0);
+    });
+
+    it('includes "team" in the message when tag_key is "team"', () => {
+      const result = handlerFor('chargeback-report')({ tag_key: 'team' });
+      expect(result.messages[0]?.content.text).toContain('team');
+    });
+
+    it('includes "environment" in the message when tag_key is "environment"', () => {
+      const result = handlerFor('chargeback-report')({ tag_key: 'environment' });
+      expect(result.messages[0]?.content.text).toContain('environment');
     });
   });
 });
