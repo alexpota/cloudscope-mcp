@@ -42,6 +42,7 @@ import {
   KQL_UNTAGGED_RESOURCES,
   IDLE_RESOURCE_REASONS,
   DEFAULT_IDLE_RESOURCE_COST_DAYS,
+  AZURE_RESOURCE_ID_DIMENSION,
   COST_STATUS_FORECAST,
   COST_STATUS_ACTUAL,
   GROUP_BY_MAP,
@@ -342,9 +343,11 @@ export class AzureCostClient implements CloudCostProvider {
     const startDate = start.toISOString().split('T')[0] ?? '';
     const endDate = today.toISOString().split('T')[0] ?? '';
 
+    // Fetches costs for ALL resources, not just idle ones — the Cost Management
+    // Query API has no IN filter for resource IDs. We match by ID after the fact.
     const costMap = new Map<string, { cost: number; currency: string }>();
     try {
-      const costResult = await this.queryCosts(startDate, endDate, 'ResourceId');
+      const costResult = await this.queryCosts(startDate, endDate, AZURE_RESOURCE_ID_DIMENSION);
       for (const row of costResult.rows) {
         costMap.set(row.name.toLowerCase(), { cost: row.cost, currency: costResult.currency });
       }

@@ -55,6 +55,7 @@ export const AZURE_COST_AGGREGATION_NAME = 'Cost';
 export const AZURE_COST_AGGREGATION_FUNCTION = 'Sum';
 export const AZURE_GROUPING_TYPE = 'Dimension';
 export const AZURE_TAG_GROUPING_TYPE = 'Tag';
+export const AZURE_RESOURCE_ID_DIMENSION = 'ResourceId';
 export const AZURE_GRANULARITY_NONE = 'None';
 export const AZURE_GRANULARITY_DAILY = 'Daily';
 export const AZURE_COST_CATEGORY = 'Cost';
