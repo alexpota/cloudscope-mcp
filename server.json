@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.alexpota/cloudscope",
-  "description": "Azure cloud cost management — spending analysis, forecasts, anomaly detection, budgets, idle resource detection, tag-based allocation, and cross-subscription queries. Includes guided workflows for monthly reviews, waste audits, and chargeback reports.",
+  "description": "Azure cost management MCP server: spending, forecasts, anomalies, budgets, idle resources, tags.",
   "repository": {
     "url": "https://github.com/alexpota/cloudscope-mcp",
     "source": "github"
   },
-  "version": "0.1.5",
+  "version": "0.2.0",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "cloudscope-mcp",
-      "version": "0.1.5",
+      "version": "0.2.0",
       "transport": {
         "type": "stdio"
       },
