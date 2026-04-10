@@ -74,6 +74,7 @@
     "@azure/arm-advisor": "^3.0.0",
     "@azure/arm-consumption": "^9.0.0",
     "@azure/arm-costmanagement": "1.0.0-beta.2",
+    "@azure/arm-resources-subscriptions": "^2.1.0",
     "@azure/identity": "^4.0.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^4.0.0"

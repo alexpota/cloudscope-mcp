@@ -60,7 +60,7 @@ export class AzureCostClient implements CloudCostProvider {
   private recommendationsCache: Cache<Recommendation[]>;
   private budgetsCache: Cache<BudgetInfo[]>;
 
-  constructor(config: AzureConfig) {
+  constructor(config: AzureConfig & { subscriptionId: string }) {
     this.subscriptionId = config.subscriptionId;
 
     const credential =

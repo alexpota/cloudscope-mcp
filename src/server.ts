@@ -1,7 +1,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { getConfig } from './config.js';
-import { AzureCostClient } from './providers/azure/client.js';
+import { initializeAzureProvider } from './providers/azure/discovery.js';
+import type { SubscriptionInfo } from './providers/azure/discovery.js';
 import { handleGetCostSummary } from './tools/cost-summary.js';
 import { handleDetectAnomalies } from './tools/anomalies.js';
 import { handleListRecommendations } from './tools/recommendations.js';
@@ -10,8 +11,10 @@ import { handleCheckBudgets } from './tools/budgets.js';
 import { handleComparePeriods } from './tools/compare.js';
 import { handleTopSpendingResources } from './tools/top-spenders.js';
 import { handleGetCurrentDate } from './tools/current-date.js';
+import { handleListSubscriptions } from './tools/list-subscriptions.js';
 import { registerPrompts } from './prompts/index.js';
 import type { Providers } from './tools/types.js';
+import { toolError } from './tools/types.js';
 import {
   PACKAGE_NAME,
   PACKAGE_VERSION,
@@ -22,12 +25,17 @@ import {
   DEFAULT_TOP_RESOURCES_DAYS,
 } from './constants.js';
 
-export function createServer(): McpServer {
+export async function createServer(): Promise<McpServer> {
   const config = getConfig();
 
-  const providers: Providers = {
-    azure: config.azure ? new AzureCostClient(config.azure) : null,
-  };
+  const azureResult = await initializeAzureProvider(config.azure);
+  const providers: Providers = { azure: azureResult?.client ?? null };
+  const azureSubscriptions: SubscriptionInfo[] = azureResult?.subscriptions ?? [];
+  const activeSubscriptionId: string = azureResult?.subscriptionId ?? '';
+
+  if (azureResult && config.azure.subscriptionId) {
+    console.error(`${PACKAGE_NAME} v${PACKAGE_VERSION} | Azure: configured`);
+  }
 
   const server = new McpServer(
     { name: PACKAGE_NAME, version: PACKAGE_VERSION },
@@ -170,6 +178,24 @@ export function createServer(): McpServer {
       },
     },
     async (input) => handleTopSpendingResources(input, providers),
+  );
+
+  server.registerTool(
+    'list_subscriptions',
+    {
+      title: 'List Azure Subscriptions',
+      description:
+        'Returns all Azure subscriptions the current credential can access, with name, ID, and state. Shows which subscription is currently active. Use this when the user has multiple subscriptions and wants to see which ones are available, or to confirm which subscription is being queried.',
+      inputSchema: {
+        provider: z.literal('azure').describe('Cloud provider to query'),
+      },
+    },
+    () => {
+      if (azureSubscriptions.length === 0) {
+        return toolError(new Error('Azure not configured. Run az login or set AZURE_SUBSCRIPTION_ID.'));
+      }
+      return handleListSubscriptions(azureSubscriptions, activeSubscriptionId);
+    },
   );
 
   server.registerTool(
