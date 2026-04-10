@@ -526,6 +526,71 @@ describe('AzureCostClient', () => {
     });
   });
 
+  describe('queryCostsForScope', () => {
+    it('queries the specified scope instead of the default subscription scope', async () => {
+      mockUsage.mockResolvedValue({
+        columns: [
+          { name: 'Cost', type: 'Number' },
+          { name: 'ServiceName', type: 'String' },
+          { name: 'Currency', type: 'String' },
+        ],
+        rows: [[500, 'Virtual Machines', 'USD']],
+      });
+
+      const customScope = '/subscriptions/different-sub-id';
+      await client.queryCostsForScope(customScope, '2026-04-01', '2026-04-09', 'ServiceName');
+
+      expect(mockUsage).toHaveBeenCalledWith(
+        customScope,
+        expect.objectContaining({ type: 'ActualCost' }),
+      );
+    });
+
+    it('caches separately per scope', async () => {
+      mockUsage.mockResolvedValue({
+        columns: [
+          { name: 'Cost', type: 'Number' },
+          { name: 'ServiceName', type: 'String' },
+          { name: 'Currency', type: 'String' },
+        ],
+        rows: [[100, 'Redis', 'USD']],
+      });
+
+      const scopeA = '/subscriptions/sub-a';
+      const scopeB = '/subscriptions/sub-b';
+
+      await client.queryCostsForScope(scopeA, '2026-04-01', '2026-04-09', 'ServiceName');
+      await client.queryCostsForScope(scopeB, '2026-04-01', '2026-04-09', 'ServiceName');
+      await client.queryCostsForScope(scopeA, '2026-04-01', '2026-04-09', 'ServiceName');
+
+      // Two unique scopes = 2 calls. Third call is a cache hit on scopeA.
+      expect(mockUsage).toHaveBeenCalledTimes(2);
+    });
+
+    it('shares cache with queryCosts when scope matches the default', async () => {
+      mockUsage.mockResolvedValue({
+        columns: [
+          { name: 'Cost', type: 'Number' },
+          { name: 'ServiceName', type: 'String' },
+          { name: 'Currency', type: 'String' },
+        ],
+        rows: [[100, 'Redis', 'USD']],
+      });
+
+      // queryCosts uses the default scope (/subscriptions/sub-abc)
+      await client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName');
+      // queryCostsForScope with the same scope should be a cache hit
+      await client.queryCostsForScope(
+        '/subscriptions/sub-abc',
+        '2026-04-01',
+        '2026-04-09',
+        'ServiceName',
+      );
+
+      expect(mockUsage).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('provider-level caching', () => {
     const sampleCostResponse = {
       columns: [

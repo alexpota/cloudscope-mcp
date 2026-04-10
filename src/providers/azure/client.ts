@@ -96,10 +96,19 @@ export class AzureCostClient implements CloudCostProvider {
   }
 
   async queryCosts(startDate: string, endDate: string, grouping: string): Promise<CostQueryResult> {
-    const key = JSON.stringify({ startDate, endDate, grouping });
+    return this.queryCostsForScope(this.scope, startDate, endDate, grouping);
+  }
+
+  async queryCostsForScope(
+    scope: string,
+    startDate: string,
+    endDate: string,
+    grouping: string,
+  ): Promise<CostQueryResult> {
+    const key = JSON.stringify({ scope, startDate, endDate, grouping });
     return this.queryCache.getOrFetch(key, async () => {
       const result = await this.callAzure(() =>
-        this.costClient.query.usage(this.scope, {
+        this.costClient.query.usage(scope, {
           type: AZURE_COST_TYPE,
           timeframe: AZURE_TIMEFRAME_CUSTOM,
           timePeriod: {

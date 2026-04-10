@@ -12,6 +12,7 @@ import { handleComparePeriods } from './tools/compare.js';
 import { handleTopSpendingResources } from './tools/top-spenders.js';
 import { handleGetCurrentDate } from './tools/current-date.js';
 import { handleListSubscriptions } from './tools/list-subscriptions.js';
+import { handleCrossSubscriptionCosts } from './tools/cross-subscription-costs.js';
 import { registerPrompts } from './prompts/index.js';
 import type { Providers } from './tools/types.js';
 import { toolError } from './tools/types.js';
@@ -178,6 +179,43 @@ export async function createServer(): Promise<McpServer> {
       },
     },
     async (input) => handleTopSpendingResources(input, providers),
+  );
+
+  server.registerTool(
+    'get_cross_subscription_costs',
+    {
+      title: 'Cross-Subscription Cost Summary',
+      description:
+        'Returns a combined cost breakdown across multiple Azure subscriptions sorted by total spend. Each subscription shows its name, total cost in USD, and percentage of the combined total. Handles partial failures gracefully — if some subscriptions are inaccessible, returns results for the rest with a warning. Use this when the user asks about costs across all subscriptions, wants to compare subscription spending, or needs an organization-wide cost overview.',
+      inputSchema: {
+        provider: z.literal('azure').describe('Cloud provider to query'),
+        subscription_ids: z
+          .array(z.string())
+          .optional()
+          .describe('Subscription IDs to include. Defaults to all enabled subscriptions.'),
+        start_date: z
+          .string()
+          .optional()
+          .describe('Start date (YYYY-MM-DD). Defaults to first of current month.'),
+        end_date: z
+          .string()
+          .optional()
+          .describe('End date (YYYY-MM-DD). Defaults to today.'),
+      },
+    },
+    async (input) => {
+      if (!azureResult?.client) {
+        return toolError(new Error('Azure not configured. Run az login or set AZURE_SUBSCRIPTION_ID.'));
+      }
+      return handleCrossSubscriptionCosts(
+        input,
+        {
+          queryCostsForScope: (scope, start, end, grouping) =>
+            azureResult.client.queryCostsForScope(scope, start, end, grouping),
+        },
+        azureSubscriptions,
+      );
+    },
   );
 
   server.registerTool(
