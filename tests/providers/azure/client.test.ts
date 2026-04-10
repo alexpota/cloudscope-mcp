@@ -39,6 +39,14 @@ vi.mock('@azure/arm-advisor', () => ({
   })),
 }));
 
+const mockResourceGraphResources = vi.fn();
+
+vi.mock('@azure/arm-resourcegraph', () => ({
+  ResourceGraphClient: vi.fn().mockImplementation(() => ({
+    resources: mockResourceGraphResources,
+  })),
+}));
+
 describe('AzureCostClient', () => {
   let AzureCostClient: typeof AzureCostClientType;
   let client: AzureCostClientType;
@@ -70,6 +78,7 @@ describe('AzureCostClient', () => {
     mockBudgetsList.mockReturnValue({
       [Symbol.asyncIterator]: async function* () {},
     });
+    mockResourceGraphResources.mockResolvedValue({ data: [] });
 
     // Dynamic import to get fresh module after mocks are set up
     const mod = await import('../../../src/providers/azure/client.js');

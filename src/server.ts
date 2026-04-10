@@ -13,6 +13,9 @@ import { handleTopSpendingResources } from './tools/top-spenders.js';
 import { handleGetCurrentDate } from './tools/current-date.js';
 import { handleListSubscriptions } from './tools/list-subscriptions.js';
 import { handleCrossSubscriptionCosts } from './tools/cross-subscription-costs.js';
+import { handleGetCostByTag } from './tools/tag-costs.js';
+import { handleFindIdleResources } from './tools/idle-resources.js';
+import { handleFindUntaggedResources } from './tools/untagged-resources.js';
 import { registerPrompts } from './prompts/index.js';
 import type { Providers } from './tools/types.js';
 import { toolError } from './tools/types.js';
@@ -179,6 +182,56 @@ export async function createServer(): Promise<McpServer> {
       },
     },
     async (input) => handleTopSpendingResources(input, providers),
+  );
+
+  server.registerTool(
+    'get_cost_by_tag',
+    {
+      title: 'Cost by Tag',
+      description:
+        'Breaks down costs by a specific tag key such as team, environment, or project. Returns a sorted table with each tag value, cost in USD, and percentage of total. Includes a total row and daily average. Returns an error if the date range is invalid or no tagged costs exist. Use this when the user asks about costs per team, per environment, cost allocation, chargeback, or wants to understand spending by any custom tag.',
+      inputSchema: {
+        provider: z.literal('azure').describe('Cloud provider to query'),
+        tag_key: z
+          .string()
+          .describe('Tag key to group costs by (e.g. team, environment, project)'),
+        start_date: z
+          .string()
+          .optional()
+          .describe('Start date (YYYY-MM-DD). Defaults to first of current month.'),
+        end_date: z
+          .string()
+          .optional()
+          .describe('End date (YYYY-MM-DD). Defaults to today.'),
+      },
+    },
+    async (input) => handleGetCostByTag(input, providers),
+  );
+
+  server.registerTool(
+    'find_idle_resources',
+    {
+      title: 'Find Idle Resources',
+      description:
+        'Finds Azure resources that are provisioned but not actively used — unattached managed disks, orphaned network interfaces, unused public IPs, and empty App Service plans. Returns each resource with its name, type, resource group, reason it is idle, and estimated monthly cost in USD based on the last 30 days. Returns an empty list if no idle resources are found. Use this when the user asks about waste, idle or unused resources, cleanup opportunities, or wants to find resources to delete to reduce costs.',
+      inputSchema: {
+        provider: z.literal('azure').describe('Cloud provider to query'),
+      },
+    },
+    async (input) => handleFindIdleResources(input, providers),
+  );
+
+  server.registerTool(
+    'find_untagged_resources',
+    {
+      title: 'Find Untagged Resources',
+      description:
+        'Finds resources in the subscription that have no tags applied. Returns each resource with its name, type, resource group, and location. Untagged resources cannot be attributed to teams or projects, making cost allocation and chargeback impossible. Returns an empty list if all resources are tagged. Use this when the user asks about tagging compliance, governance, cost attribution gaps, or wants to identify resources that need tags.',
+      inputSchema: {
+        provider: z.literal('azure').describe('Cloud provider to query'),
+      },
+    },
+    async (input) => handleFindUntaggedResources(input, providers),
   );
 
   server.registerTool(
