@@ -54,6 +54,9 @@ export const AZURE_COST_TYPE = 'ActualCost';
 export const AZURE_COST_AGGREGATION_NAME = 'Cost';
 export const AZURE_COST_AGGREGATION_FUNCTION = 'Sum';
 export const AZURE_GROUPING_TYPE = 'Dimension';
+export const AZURE_TAG_GROUPING_TYPE = 'TagKey';
+export const AZURE_RESOURCE_ID_DIMENSION = 'ResourceId';
+export const AZURE_TAG_VALUE_COLUMN = 'TagValue';
 export const AZURE_GRANULARITY_NONE = 'None';
 export const AZURE_GRANULARITY_DAILY = 'Daily';
 export const AZURE_COST_CATEGORY = 'Cost';
@@ -79,3 +82,24 @@ export const COST_STATUS_ACTUAL = 'Actual';
 
 // Anomaly detection
 export const NEW_SERVICE_CHANGE_PERCENT = 100;
+
+// Resource Graph KQL queries for idle resource detection
+export const KQL_UNATTACHED_DISKS =
+  'resources | where type == "microsoft.compute/disks" | where properties.diskState == "Unattached" | project name, type, resourceGroup, id';
+export const KQL_ORPHANED_NICS =
+  'resources | where type == "microsoft.network/networkinterfaces" | where isnull(properties.virtualMachine) | project name, type, resourceGroup, id';
+export const KQL_UNUSED_PUBLIC_IPS =
+  'resources | where type == "microsoft.network/publicipaddresses" | where properties.ipConfiguration == "" or isnull(properties.ipConfiguration) | project name, type, resourceGroup, id';
+export const KQL_EMPTY_APP_SERVICE_PLANS =
+  'resources | where type == "microsoft.web/serverfarms" | where properties.numberOfSites == 0 | project name, type, resourceGroup, id';
+export const KQL_UNTAGGED_RESOURCES =
+  'resources | where isnull(tags) or tags == "{}" | project name, type, resourceGroup, location';
+
+export const IDLE_RESOURCE_REASONS: Record<string, string> = {
+  'microsoft.compute/disks': 'Unattached disk',
+  'microsoft.network/networkinterfaces': 'Orphaned network interface',
+  'microsoft.network/publicipaddresses': 'Unused public IP',
+  'microsoft.web/serverfarms': 'Empty App Service plan',
+};
+
+export const DEFAULT_IDLE_RESOURCE_COST_DAYS = 30;

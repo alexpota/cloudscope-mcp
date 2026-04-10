@@ -22,10 +22,13 @@ describe('config', () => {
     });
   });
 
-  it('returns null azure when no Azure env vars set', async () => {
+  it('returns azure config with empty strings when no Azure env vars set', async () => {
     const { getConfig } = await import('../src/config.js');
     const config = getConfig();
-    expect(config.azure).toBeNull();
+    expect(config.azure.tenantId).toBe('');
+    expect(config.azure.clientId).toBe('');
+    expect(config.azure.clientSecret).toBe('');
+    expect(config.azure.subscriptionId).toBeUndefined();
   });
 
 });

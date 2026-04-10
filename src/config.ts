@@ -2,11 +2,11 @@ export interface AzureConfig {
   tenantId: string;
   clientId: string;
   clientSecret: string;
-  subscriptionId: string;
+  subscriptionId?: string;
 }
 
 export interface AppConfig {
-  azure: AzureConfig | null;
+  azure: AzureConfig;
 }
 
 export function getConfig(): AppConfig {
@@ -15,18 +15,11 @@ export function getConfig(): AppConfig {
   };
 }
 
-function getAzureConfig(): AzureConfig | null {
-  const tenantId = process.env.AZURE_TENANT_ID;
-  const clientId = process.env.AZURE_CLIENT_ID;
-  const clientSecret = process.env.AZURE_CLIENT_SECRET;
-  const subscriptionId = process.env.AZURE_SUBSCRIPTION_ID;
-
-  if (!subscriptionId) return null;
-
+function getAzureConfig(): AzureConfig {
   return {
-    tenantId: tenantId || '',
-    clientId: clientId || '',
-    clientSecret: clientSecret || '',
-    subscriptionId,
+    tenantId: process.env.AZURE_TENANT_ID || '',
+    clientId: process.env.AZURE_CLIENT_ID || '',
+    clientSecret: process.env.AZURE_CLIENT_SECRET || '',
+    subscriptionId: process.env.AZURE_SUBSCRIPTION_ID || undefined,
   };
 }

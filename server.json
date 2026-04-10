@@ -1,26 +1,26 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.alexpota/cloudscope",
-  "description": "Cloud cost management MCP server for Azure: spending, forecasts, anomalies, budgets, advisor.",
+  "description": "Azure cost management MCP server: spending, forecasts, anomalies, budgets, idle resources, tags.",
   "repository": {
     "url": "https://github.com/alexpota/cloudscope-mcp",
     "source": "github"
   },
-  "version": "0.1.5",
+  "version": "0.2.0",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "cloudscope-mcp",
-      "version": "0.1.5",
+      "version": "0.2.0",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
           "name": "AZURE_SUBSCRIPTION_ID",
-          "description": "Azure subscription ID to query for cost data.",
-          "isRequired": true,
+          "description": "Azure subscription ID to query for cost data. Optional; auto-detected from az login session if not set.",
+          "isRequired": false,
           "isSecret": false
         },
         {

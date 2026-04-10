@@ -39,6 +39,14 @@ vi.mock('@azure/arm-advisor', () => ({
   })),
 }));
 
+const mockResourceGraphResources = vi.fn();
+
+vi.mock('@azure/arm-resourcegraph', () => ({
+  ResourceGraphClient: vi.fn().mockImplementation(() => ({
+    resources: mockResourceGraphResources,
+  })),
+}));
+
 describe('AzureCostClient', () => {
   let AzureCostClient: typeof AzureCostClientType;
   let client: AzureCostClientType;
@@ -70,6 +78,7 @@ describe('AzureCostClient', () => {
     mockBudgetsList.mockReturnValue({
       [Symbol.asyncIterator]: async function* () {},
     });
+    mockResourceGraphResources.mockResolvedValue({ data: [] });
 
     // Dynamic import to get fresh module after mocks are set up
     const mod = await import('../../../src/providers/azure/client.js');
@@ -523,6 +532,71 @@ describe('AzureCostClient', () => {
     it('returns empty array when no budgets exist', async () => {
       const budgets = await client.listBudgets();
       expect(budgets).toHaveLength(0);
+    });
+  });
+
+  describe('queryCostsForScope', () => {
+    it('queries the specified scope instead of the default subscription scope', async () => {
+      mockUsage.mockResolvedValue({
+        columns: [
+          { name: 'Cost', type: 'Number' },
+          { name: 'ServiceName', type: 'String' },
+          { name: 'Currency', type: 'String' },
+        ],
+        rows: [[500, 'Virtual Machines', 'USD']],
+      });
+
+      const customScope = '/subscriptions/different-sub-id';
+      await client.queryCostsForScope(customScope, '2026-04-01', '2026-04-09', 'ServiceName');
+
+      expect(mockUsage).toHaveBeenCalledWith(
+        customScope,
+        expect.objectContaining({ type: 'ActualCost' }),
+      );
+    });
+
+    it('caches separately per scope', async () => {
+      mockUsage.mockResolvedValue({
+        columns: [
+          { name: 'Cost', type: 'Number' },
+          { name: 'ServiceName', type: 'String' },
+          { name: 'Currency', type: 'String' },
+        ],
+        rows: [[100, 'Redis', 'USD']],
+      });
+
+      const scopeA = '/subscriptions/sub-a';
+      const scopeB = '/subscriptions/sub-b';
+
+      await client.queryCostsForScope(scopeA, '2026-04-01', '2026-04-09', 'ServiceName');
+      await client.queryCostsForScope(scopeB, '2026-04-01', '2026-04-09', 'ServiceName');
+      await client.queryCostsForScope(scopeA, '2026-04-01', '2026-04-09', 'ServiceName');
+
+      // Two unique scopes = 2 calls. Third call is a cache hit on scopeA.
+      expect(mockUsage).toHaveBeenCalledTimes(2);
+    });
+
+    it('shares cache with queryCosts when scope matches the default', async () => {
+      mockUsage.mockResolvedValue({
+        columns: [
+          { name: 'Cost', type: 'Number' },
+          { name: 'ServiceName', type: 'String' },
+          { name: 'Currency', type: 'String' },
+        ],
+        rows: [[100, 'Redis', 'USD']],
+      });
+
+      // queryCosts uses the default scope (/subscriptions/sub-abc)
+      await client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName');
+      // queryCostsForScope with the same scope should be a cache hit
+      await client.queryCostsForScope(
+        '/subscriptions/sub-abc',
+        '2026-04-01',
+        '2026-04-09',
+        'ServiceName',
+      );
+
+      expect(mockUsage).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -14,11 +14,10 @@ describe('config edge cases', () => {
     const config = getConfig();
 
     // Should still return an Azure config (DefaultAzureCredential handles auth)
-    expect(config.azure).not.toBeNull();
-    expect(config.azure!.subscriptionId).toBe('sub-123');
-    expect(config.azure!.tenantId).toBe('');
-    expect(config.azure!.clientId).toBe('');
-    expect(config.azure!.clientSecret).toBe('');
+    expect(config.azure.subscriptionId).toBe('sub-123');
+    expect(config.azure.tenantId).toBe('');
+    expect(config.azure.clientId).toBe('');
+    expect(config.azure.clientSecret).toBe('');
   });
 
 });

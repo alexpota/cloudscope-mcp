@@ -1,7 +1,8 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import { getConfig } from './config.js';
-import { AzureCostClient } from './providers/azure/client.js';
+import { initializeAzureProvider } from './providers/azure/discovery.js';
+import type { SubscriptionInfo } from './providers/azure/discovery.js';
 import { handleGetCostSummary } from './tools/cost-summary.js';
 import { handleDetectAnomalies } from './tools/anomalies.js';
 import { handleListRecommendations } from './tools/recommendations.js';
@@ -10,8 +11,14 @@ import { handleCheckBudgets } from './tools/budgets.js';
 import { handleComparePeriods } from './tools/compare.js';
 import { handleTopSpendingResources } from './tools/top-spenders.js';
 import { handleGetCurrentDate } from './tools/current-date.js';
+import { handleListSubscriptions } from './tools/list-subscriptions.js';
+import { handleCrossSubscriptionCosts } from './tools/cross-subscription-costs.js';
+import { handleGetCostByTag } from './tools/tag-costs.js';
+import { handleFindIdleResources } from './tools/idle-resources.js';
+import { handleFindUntaggedResources } from './tools/untagged-resources.js';
 import { registerPrompts } from './prompts/index.js';
 import type { Providers } from './tools/types.js';
+import { toolError } from './tools/types.js';
 import {
   PACKAGE_NAME,
   PACKAGE_VERSION,
@@ -22,12 +29,17 @@ import {
   DEFAULT_TOP_RESOURCES_DAYS,
 } from './constants.js';
 
-export function createServer(): McpServer {
+export async function createServer(): Promise<McpServer> {
   const config = getConfig();
 
-  const providers: Providers = {
-    azure: config.azure ? new AzureCostClient(config.azure) : null,
-  };
+  const azureResult = await initializeAzureProvider(config.azure);
+  const providers: Providers = { azure: azureResult?.client ?? null };
+  const azureSubscriptions: SubscriptionInfo[] = azureResult?.subscriptions ?? [];
+  const activeSubscriptionId: string = azureResult?.subscriptionId ?? '';
+
+  if (azureResult && config.azure.subscriptionId) {
+    console.error(`${PACKAGE_NAME} v${PACKAGE_VERSION} | Azure: configured`);
+  }
 
   const server = new McpServer(
     { name: PACKAGE_NAME, version: PACKAGE_VERSION },
@@ -37,6 +49,10 @@ export function createServer(): McpServer {
         'Call get_current_date before any date-dependent tool if the current date is unclear — LLMs frequently hallucinate dates. ' +
         'For investigating cost increases, combine detect_anomalies with top_spending_resources to identify both the service and the specific resource. ' +
         'list_recommendations returns Azure Advisor suggestions — pair with check_budgets to prioritize savings for at-risk budgets. ' +
+        'find_idle_resources detects provisioned-but-unused resources (unattached disks, orphaned NICs, unused IPs, empty App Service plans) with cost estimates. ' +
+        'For cross-subscription queries, call list_subscriptions first to discover available subscriptions, then get_cross_subscription_costs to compare them. ' +
+        'get_cost_by_tag groups spending by any Azure tag key — useful for chargeback and cost allocation by team, environment, or project. ' +
+        'find_untagged_resources identifies resources missing tags, which creates cost attribution gaps. ' +
         'All costs are in USD. All dates use YYYY-MM-DD format.',
     },
   );
@@ -170,6 +186,111 @@ export function createServer(): McpServer {
       },
     },
     async (input) => handleTopSpendingResources(input, providers),
+  );
+
+  server.registerTool(
+    'get_cost_by_tag',
+    {
+      title: 'Cost by Tag',
+      description:
+        'Breaks down costs by a specific tag key such as team, environment, or project. Returns a sorted table with each tag value, cost in USD, and percentage of total. Includes a total row and daily average. Returns an error if the date range is invalid or no tagged costs exist. Use this when the user asks about costs per team, per environment, cost allocation, chargeback, or wants to understand spending by any custom tag.',
+      inputSchema: {
+        provider: z.literal('azure').describe('Cloud provider to query'),
+        tag_key: z
+          .string()
+          .describe('Tag key to group costs by (e.g. team, environment, project)'),
+        start_date: z
+          .string()
+          .optional()
+          .describe('Start date (YYYY-MM-DD). Defaults to first of current month.'),
+        end_date: z
+          .string()
+          .optional()
+          .describe('End date (YYYY-MM-DD). Defaults to today.'),
+      },
+    },
+    async (input) => handleGetCostByTag(input, providers),
+  );
+
+  server.registerTool(
+    'find_idle_resources',
+    {
+      title: 'Find Idle Resources',
+      description:
+        'Finds Azure resources that are provisioned but not actively used — unattached managed disks, orphaned network interfaces, unused public IPs, and empty App Service plans. Returns each resource with its name, type, resource group, reason it is idle, and estimated monthly cost in USD based on the last 30 days. Returns an empty list if no idle resources are found. Use this when the user asks about waste, idle or unused resources, cleanup opportunities, or wants to find resources to delete to reduce costs.',
+      inputSchema: {
+        provider: z.literal('azure').describe('Cloud provider to query'),
+      },
+    },
+    async (input) => handleFindIdleResources(input, providers),
+  );
+
+  server.registerTool(
+    'find_untagged_resources',
+    {
+      title: 'Find Untagged Resources',
+      description:
+        'Finds resources in the subscription that have no tags applied. Returns each resource with its name, type, resource group, and location. Untagged resources cannot be attributed to teams or projects, making cost allocation and chargeback impossible. Returns an empty list if all resources are tagged. Use this when the user asks about tagging compliance, governance, cost attribution gaps, or wants to identify resources that need tags.',
+      inputSchema: {
+        provider: z.literal('azure').describe('Cloud provider to query'),
+      },
+    },
+    async (input) => handleFindUntaggedResources(input, providers),
+  );
+
+  server.registerTool(
+    'get_cross_subscription_costs',
+    {
+      title: 'Cross-Subscription Cost Summary',
+      description:
+        'Returns a combined cost breakdown across multiple Azure subscriptions sorted by total spend. Each subscription shows its name, total cost in USD, and percentage of the combined total. Handles partial failures gracefully — if some subscriptions are inaccessible, returns results for the rest with a warning. Use this when the user asks about costs across all subscriptions, wants to compare subscription spending, or needs an organization-wide cost overview.',
+      inputSchema: {
+        provider: z.literal('azure').describe('Cloud provider to query'),
+        subscription_ids: z
+          .array(z.string())
+          .optional()
+          .describe('Subscription IDs to include. Defaults to all enabled subscriptions.'),
+        start_date: z
+          .string()
+          .optional()
+          .describe('Start date (YYYY-MM-DD). Defaults to first of current month.'),
+        end_date: z
+          .string()
+          .optional()
+          .describe('End date (YYYY-MM-DD). Defaults to today.'),
+      },
+    },
+    async (input) => {
+      if (!azureResult?.client) {
+        return toolError(new Error('Azure not configured. Run az login or set AZURE_SUBSCRIPTION_ID.'));
+      }
+      return handleCrossSubscriptionCosts(
+        input,
+        {
+          queryCostsForScope: (scope, start, end, grouping) =>
+            azureResult.client.queryCostsForScope(scope, start, end, grouping),
+        },
+        azureSubscriptions,
+      );
+    },
+  );
+
+  server.registerTool(
+    'list_subscriptions',
+    {
+      title: 'List Azure Subscriptions',
+      description:
+        'Returns all Azure subscriptions the current credential can access, with name, ID, and state. Shows which subscription is currently active. Use this when the user has multiple subscriptions and wants to see which ones are available, or to confirm which subscription is being queried.',
+      inputSchema: {
+        provider: z.literal('azure').describe('Cloud provider to query'),
+      },
+    },
+    () => {
+      if (azureSubscriptions.length === 0) {
+        return toolError(new Error('Azure not configured. Run az login or set AZURE_SUBSCRIPTION_ID.'));
+      }
+      return handleListSubscriptions(azureSubscriptions, activeSubscriptionId);
+    },
   );
 
   server.registerTool(

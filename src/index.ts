@@ -16,26 +16,22 @@ if (args.includes('--validate')) {
   process.exit(0);
 }
 
-// Normal MCP startup
-const config = getConfig();
-const azureStatus = config.azure ? 'configured' : 'not configured';
-console.error(`${PACKAGE_NAME} v${PACKAGE_VERSION} | Azure: ${azureStatus}`);
-
-const server = createServer();
+// Normal MCP startup (includes auto-discovery if no subscription ID set)
+const server = await createServer();
 const transport = new StdioServerTransport();
 await server.connect(transport);
 
 async function validate(): Promise<void> {
   const config = getConfig();
 
-  if (!config.azure) {
+  if (!config.azure.subscriptionId) {
     process.stdout.write('Azure: Not configured (set AZURE_SUBSCRIPTION_ID)\n');
     process.exit(1);
   }
 
   process.stdout.write(`Azure: Checking subscription ${config.azure.subscriptionId}...\n`);
 
-  const client = new AzureCostClient(config.azure);
+  const client = new AzureCostClient(config.azure as typeof config.azure & { subscriptionId: string });
   const result = await client.validate();
 
   if (result.connected) {

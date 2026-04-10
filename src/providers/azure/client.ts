@@ -2,6 +2,7 @@ import { ClientSecretCredential, DefaultAzureCredential } from '@azure/identity'
 import { CostManagementClient } from '@azure/arm-costmanagement';
 import { AdvisorManagementClient } from '@azure/arm-advisor';
 import { ConsumptionManagementClient } from '@azure/arm-consumption';
+import { ResourceGraphClient } from '@azure/arm-resourcegraph';
 import type { AzureConfig } from '../../config.js';
 import type {
   CloudCostProvider,
@@ -9,12 +10,15 @@ import type {
   ForecastResult,
   Recommendation,
   BudgetInfo,
+  IdleResource,
+  UntaggedResource,
 } from '../types.js';
 import {
   AZURE_COST_TYPE,
   AZURE_COST_AGGREGATION_NAME,
   AZURE_COST_AGGREGATION_FUNCTION,
   AZURE_GROUPING_TYPE,
+  AZURE_TAG_GROUPING_TYPE,
   AZURE_GRANULARITY_NONE,
   AZURE_GRANULARITY_DAILY,
   AZURE_COST_CATEGORY,
@@ -31,6 +35,15 @@ import {
   DEFAULT_CACHE_TTL_SECONDS,
   DEFAULT_CURRENCY,
   MAX_CACHE_ENTRIES,
+  KQL_UNATTACHED_DISKS,
+  KQL_ORPHANED_NICS,
+  KQL_UNUSED_PUBLIC_IPS,
+  KQL_EMPTY_APP_SERVICE_PLANS,
+  KQL_UNTAGGED_RESOURCES,
+  IDLE_RESOURCE_REASONS,
+  DEFAULT_IDLE_RESOURCE_COST_DAYS,
+  AZURE_RESOURCE_ID_DIMENSION,
+  AZURE_TAG_VALUE_COLUMN,
   COST_STATUS_FORECAST,
   COST_STATUS_ACTUAL,
   GROUP_BY_MAP,
@@ -53,6 +66,7 @@ export class AzureCostClient implements CloudCostProvider {
   private costClient: CostManagementClient;
   private advisorClient: AdvisorManagementClient;
   private consumptionClient: ConsumptionManagementClient;
+  private resourceGraphClient: ResourceGraphClient;
   private subscriptionId: string;
   private rateLimiter: RateLimiter;
   private queryCache: Cache<CostQueryResult>;
@@ -60,7 +74,7 @@ export class AzureCostClient implements CloudCostProvider {
   private recommendationsCache: Cache<Recommendation[]>;
   private budgetsCache: Cache<BudgetInfo[]>;
 
-  constructor(config: AzureConfig) {
+  constructor(config: AzureConfig & { subscriptionId: string }) {
     this.subscriptionId = config.subscriptionId;
 
     const credential =
@@ -71,6 +85,7 @@ export class AzureCostClient implements CloudCostProvider {
     this.costClient = new CostManagementClient(credential);
     this.advisorClient = new AdvisorManagementClient(credential, this.subscriptionId);
     this.consumptionClient = new ConsumptionManagementClient(credential, this.subscriptionId);
+    this.resourceGraphClient = new ResourceGraphClient(credential);
     this.rateLimiter = createRateLimiter({ concurrency: AZURE_COST_MANAGEMENT_CONCURRENCY });
     this.queryCache = new Cache<CostQueryResult>(DEFAULT_CACHE_TTL_SECONDS, MAX_CACHE_ENTRIES);
     this.forecastCache = new Cache<ForecastResult>(DEFAULT_CACHE_TTL_SECONDS, MAX_CACHE_ENTRIES);
@@ -96,10 +111,19 @@ export class AzureCostClient implements CloudCostProvider {
   }
 
   async queryCosts(startDate: string, endDate: string, grouping: string): Promise<CostQueryResult> {
-    const key = JSON.stringify({ startDate, endDate, grouping });
+    return this.queryCostsForScope(this.scope, startDate, endDate, grouping);
+  }
+
+  async queryCostsForScope(
+    scope: string,
+    startDate: string,
+    endDate: string,
+    grouping: string,
+  ): Promise<CostQueryResult> {
+    const key = JSON.stringify({ scope, startDate, endDate, grouping });
     return this.queryCache.getOrFetch(key, async () => {
       const result = await this.callAzure(() =>
-        this.costClient.query.usage(this.scope, {
+        this.costClient.query.usage(scope, {
           type: AZURE_COST_TYPE,
           timeframe: AZURE_TIMEFRAME_CUSTOM,
           timePeriod: {
@@ -122,6 +146,48 @@ export class AzureCostClient implements CloudCostProvider {
       const columns = result.columns || [];
       const costIdx = requireColumn(columns, AZURE_COST_AGGREGATION_NAME);
       const nameIdx = requireColumn(columns, grouping);
+      const currencyIdx = columns.findIndex((c) => c.name === AZURE_CURRENCY_COLUMN);
+
+      const rows = (result.rows || []).map((row: unknown[]) => ({
+        name: String(row[nameIdx]),
+        cost: Number(row[costIdx]),
+        currency: String(row[currencyIdx] || DEFAULT_CURRENCY),
+      }));
+
+      return {
+        rows: rows.map((r) => ({ name: r.name, cost: r.cost })),
+        currency: rows[0]?.currency || DEFAULT_CURRENCY,
+      };
+    });
+  }
+
+  async queryCostsByTag(startDate: string, endDate: string, tagKey: string): Promise<CostQueryResult> {
+    const key = JSON.stringify({ scope: this.scope, startDate, endDate, tagKey, type: 'tag' });
+    return this.queryCache.getOrFetch(key, async () => {
+      const result = await this.callAzure(() =>
+        this.costClient.query.usage(this.scope, {
+          type: AZURE_COST_TYPE,
+          timeframe: AZURE_TIMEFRAME_CUSTOM,
+          timePeriod: {
+            from: new Date(startDate),
+            to: new Date(endDate),
+          },
+          dataset: {
+            granularity: AZURE_GRANULARITY_NONE,
+            aggregation: {
+              totalCost: {
+                name: AZURE_COST_AGGREGATION_NAME,
+                function: AZURE_COST_AGGREGATION_FUNCTION,
+              },
+            },
+            grouping: [{ type: AZURE_TAG_GROUPING_TYPE, name: tagKey }],
+          },
+        }),
+      );
+
+      const columns = result.columns || [];
+      const costIdx = requireColumn(columns, AZURE_COST_AGGREGATION_NAME);
+      const nameIdx = requireColumn(columns, AZURE_TAG_VALUE_COLUMN);
       const currencyIdx = columns.findIndex((c) => c.name === AZURE_CURRENCY_COLUMN);
 
       const rows = (result.rows || []).map((row: unknown[]) => ({
@@ -239,6 +305,85 @@ export class AzureCostClient implements CloudCostProvider {
         return budgets;
       });
     });
+  }
+
+  async findIdleResources(): Promise<IdleResource[]> {
+    const queries = [
+      KQL_UNATTACHED_DISKS,
+      KQL_ORPHANED_NICS,
+      KQL_UNUSED_PUBLIC_IPS,
+      KQL_EMPTY_APP_SERVICE_PLANS,
+    ];
+
+    const allResources: Array<{ name: string; type: string; resourceGroup: string; id: string }> = [];
+
+    for (const query of queries) {
+      const result = await this.callAzure(() =>
+        this.resourceGraphClient.resources({
+          query,
+          subscriptions: [this.subscriptionId],
+        }),
+      );
+      const rows = (result.data as Array<Record<string, string>>) || [];
+      for (const row of rows) {
+        allResources.push({
+          name: row['name'] || '',
+          type: row['type'] || '',
+          resourceGroup: row['resourceGroup'] || '',
+          id: row['id'] || '',
+        });
+      }
+    }
+
+    if (allResources.length === 0) return [];
+
+    // Get cost estimates for idle resources
+    const today = new Date();
+    const start = new Date(today);
+    start.setDate(start.getDate() - DEFAULT_IDLE_RESOURCE_COST_DAYS);
+    const startDate = start.toISOString().split('T')[0] ?? '';
+    const endDate = today.toISOString().split('T')[0] ?? '';
+
+    // Fetches costs for ALL resources, not just idle ones — the Cost Management
+    // Query API has no IN filter for resource IDs. We match by ID after the fact.
+    const costMap = new Map<string, { cost: number; currency: string }>();
+    try {
+      const costResult = await this.queryCosts(startDate, endDate, AZURE_RESOURCE_ID_DIMENSION);
+      for (const row of costResult.rows) {
+        costMap.set(row.name.toLowerCase(), { cost: row.cost, currency: costResult.currency });
+      }
+    } catch {
+      // Cost data unavailable — proceed with zero estimates
+    }
+
+    return allResources.map((r) => {
+      const costEntry = costMap.get(r.id.toLowerCase());
+      return {
+        name: r.name,
+        type: r.type,
+        resourceGroup: r.resourceGroup,
+        reason: IDLE_RESOURCE_REASONS[r.type] ?? 'Idle resource',
+        estimatedMonthlyCost: costEntry?.cost ?? 0,
+        currency: costEntry?.currency ?? DEFAULT_CURRENCY,
+      };
+    });
+  }
+
+  async findUntaggedResources(): Promise<UntaggedResource[]> {
+    const result = await this.callAzure(() =>
+      this.resourceGraphClient.resources({
+        query: KQL_UNTAGGED_RESOURCES,
+        subscriptions: [this.subscriptionId],
+      }),
+    );
+
+    const rows = (result.data as Array<Record<string, string>>) || [];
+    return rows.map((row) => ({
+      name: row['name'] || '',
+      type: row['type'] || '',
+      resourceGroup: row['resourceGroup'] || '',
+      location: row['location'] || '',
+    }));
   }
 
   async validate(): Promise<{ connected: boolean; detail: string }> {

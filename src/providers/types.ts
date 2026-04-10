@@ -32,8 +32,27 @@ export interface BudgetInfo {
   currency: string;
 }
 
+export interface IdleResource {
+  name: string;
+  type: string;
+  resourceGroup: string;
+  reason: string;
+  estimatedMonthlyCost: number;
+  currency: string;
+}
+
+export interface UntaggedResource {
+  name: string;
+  type: string;
+  resourceGroup: string;
+  location: string;
+}
+
 export interface CloudCostProvider {
   queryCosts(start: string, end: string, grouping: string): Promise<CostQueryResult>;
+  queryCostsByTag(start: string, end: string, tagKey: string): Promise<CostQueryResult>;
+  findIdleResources(): Promise<IdleResource[]>;
+  findUntaggedResources(): Promise<UntaggedResource[]>;
   getRecommendations(category?: string): Promise<Recommendation[]>;
   listBudgets(): Promise<BudgetInfo[]>;
   forecastCosts(start: string, end: string): Promise<ForecastResult>;
