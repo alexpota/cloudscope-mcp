@@ -390,7 +390,24 @@ export class GcpCostClient implements CloudCostProvider {
   }
 
   async findUntaggedResources(): Promise<UntaggedResource[]> {
-    throw new Error('GCP findUntaggedResources not yet implemented');
+    const { AssetServiceClient } = await import('@google-cloud/asset');
+    const client = new AssetServiceClient();
+
+    const scope = `projects/${this.projectId}`;
+    const [resources] = await this.callGcp(() =>
+      client.searchAllResources({
+        scope,
+        query: 'NOT labels:*',
+        pageSize: 500,
+      }),
+    );
+
+    return (resources ?? []).map((r) => ({
+      name: r.displayName || r.name?.split('/').pop() || '',
+      type: r.assetType ?? '',
+      resourceGroup: this.projectId,
+      location: r.location ?? '',
+    }));
   }
 
   async validate(): Promise<{ connected: boolean; detail: string }> {

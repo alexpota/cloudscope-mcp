@@ -29,6 +29,14 @@ vi.mock('@google-cloud/billing-budgets', () => ({
   })),
 }));
 
+const mockSearchAllResources = vi.fn();
+
+vi.mock('@google-cloud/asset', () => ({
+  AssetServiceClient: vi.fn().mockImplementation(() => ({
+    searchAllResources: mockSearchAllResources,
+  })),
+}));
+
 import { GcpCostClient } from '../../../src/providers/gcp/client.js';
 
 function createClient(billingAccountId?: string) {
@@ -420,10 +428,45 @@ describe('GcpCostClient', () => {
     });
   });
 
-  describe('not yet implemented methods', () => {
-    it('findUntaggedResources throws', async () => {
+  describe('findUntaggedResources', () => {
+    it('returns untagged resources from Asset Inventory API', async () => {
+      mockSearchAllResources.mockResolvedValueOnce([
+        [
+          {
+            displayName: 'vm-no-labels',
+            name: '//compute.googleapis.com/projects/p/zones/z/instances/vm-no-labels',
+            assetType: 'compute.googleapis.com/Instance',
+            location: 'us-central1-a',
+          },
+          {
+            name: '//storage.googleapis.com/projects/p/buckets/my-bucket',
+            assetType: 'storage.googleapis.com/Bucket',
+            location: 'us',
+          },
+        ],
+      ]);
+
       const client = createClient();
-      await expect(client.findUntaggedResources()).rejects.toThrow('not yet implemented');
+      const resources = await client.findUntaggedResources();
+
+      expect(resources).toHaveLength(2);
+      expect(resources[0]).toEqual({
+        name: 'vm-no-labels',
+        type: 'compute.googleapis.com/Instance',
+        resourceGroup: 'test-project',
+        location: 'us-central1-a',
+      });
+      // Falls back to last path segment when no displayName
+      expect(resources[1]?.name).toBe('my-bucket');
+    });
+
+    it('returns empty array when no untagged resources found', async () => {
+      mockSearchAllResources.mockResolvedValueOnce([[]]);
+
+      const client = createClient();
+      const resources = await client.findUntaggedResources();
+
+      expect(resources).toEqual([]);
     });
   });
 });
