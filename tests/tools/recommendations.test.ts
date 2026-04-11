@@ -32,7 +32,7 @@ describe('handleListRecommendations', () => {
 
     const result = await handleListRecommendations(
       { provider: 'azure', category: 'all' },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     const text = result.content[0].text;
@@ -47,7 +47,7 @@ describe('handleListRecommendations', () => {
 
     const result = await handleListRecommendations(
       { provider: 'azure', category: 'all' },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     expect(result.content[0].text).toContain('No cost optimization recommendations');
@@ -56,7 +56,7 @@ describe('handleListRecommendations', () => {
   it('returns error when azure is not configured', async () => {
     const result = await handleListRecommendations(
       { provider: 'azure', category: 'all' },
-      { azure: null },
+      { azure: null, gcp: null },
     );
 
     expect(result.isError).toBe(true);
@@ -71,7 +71,7 @@ describe('handleListRecommendations', () => {
 
     const result = await handleListRecommendations(
       { provider: 'azure', category: 'all' },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     const text = result.content[0].text;
@@ -87,7 +87,7 @@ describe('handleListRecommendations', () => {
 
     const result = await handleListRecommendations(
       { provider: 'azure', category: 'all' },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     const text = result.content[0].text;

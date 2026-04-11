@@ -18,7 +18,7 @@ describe('handleTopSpendingResources', () => {
 
     const result = await handleTopSpendingResources(
       { provider: 'azure', days: 30, limit: 10 },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     const text = result.content[0].text;
@@ -42,7 +42,7 @@ describe('handleTopSpendingResources', () => {
 
     const result = await handleTopSpendingResources(
       { provider: 'azure', days: 30, limit: 2 },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     const text = result.content[0].text;
@@ -58,7 +58,7 @@ describe('handleTopSpendingResources', () => {
 
     const result = await handleTopSpendingResources(
       { provider: 'azure', days: 30, limit: 10 },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     expect(result.content[0].text).toContain('No resource-level cost data');
@@ -67,7 +67,7 @@ describe('handleTopSpendingResources', () => {
   it('returns error when not configured', async () => {
     const result = await handleTopSpendingResources(
       { provider: 'azure', days: 30, limit: 10 },
-      { azure: null },
+      { azure: null, gcp: null },
     );
 
     expect(result.isError).toBe(true);

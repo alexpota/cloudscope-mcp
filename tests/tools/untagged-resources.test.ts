@@ -14,7 +14,7 @@ describe('handleFindUntaggedResources', () => {
 
     const result = await handleFindUntaggedResources(
       { provider: 'azure' },
-      { azure: mockClient as any },
+      { azure: mockClient as any, gcp: null },
     );
 
     const text = result.content[0].text;
@@ -28,7 +28,7 @@ describe('handleFindUntaggedResources', () => {
 
     const result = await handleFindUntaggedResources(
       { provider: 'azure' },
-      { azure: mockClient as any },
+      { azure: mockClient as any, gcp: null },
     );
 
     expect(result.content[0].text).toContain('All resources have tags');
@@ -37,7 +37,7 @@ describe('handleFindUntaggedResources', () => {
   it('returns error when not configured', async () => {
     const result = await handleFindUntaggedResources(
       { provider: 'azure' },
-      { azure: null },
+      { azure: null, gcp: null },
     );
 
     expect(result.isError).toBe(true);

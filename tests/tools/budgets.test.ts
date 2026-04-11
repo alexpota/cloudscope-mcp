@@ -28,7 +28,7 @@ describe('handleCheckBudgets', () => {
 
     const result = await handleCheckBudgets(
       { provider: 'azure' },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     const text = result.content[0].text;
@@ -55,7 +55,7 @@ describe('handleCheckBudgets', () => {
 
     const result = await handleCheckBudgets(
       { provider: 'azure' },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     const text = result.content[0].text;
@@ -87,7 +87,7 @@ describe('handleCheckBudgets', () => {
 
     const result = await handleCheckBudgets(
       { provider: 'azure' },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     const text = result.content[0].text;
@@ -105,7 +105,7 @@ describe('handleCheckBudgets', () => {
 
     const result = await handleCheckBudgets(
       { provider: 'azure' },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     expect(result.content[0].text).toContain('No budgets found');
@@ -114,7 +114,7 @@ describe('handleCheckBudgets', () => {
   it('returns error when not configured', async () => {
     const result = await handleCheckBudgets(
       { provider: 'azure' },
-      { azure: null },
+      { azure: null, gcp: null },
     );
 
     expect(result.isError).toBe(true);

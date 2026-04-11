@@ -33,7 +33,7 @@ export async function createServer(): Promise<McpServer> {
   const config = getConfig();
 
   const azureResult = await initializeAzureProvider(config.azure);
-  const providers: Providers = { azure: azureResult?.client ?? null };
+  const providers: Providers = { azure: azureResult?.client ?? null, gcp: null };
   const azureSubscriptions: SubscriptionInfo[] = azureResult?.subscriptions ?? [];
   const activeSubscriptionId: string = azureResult?.subscriptionId ?? '';
 

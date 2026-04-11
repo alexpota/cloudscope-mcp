@@ -32,7 +32,7 @@ describe('handleComparePeriods', () => {
         period_b_end: '2026-02-28',
         group_by: 'service',
       },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     const text = result.content[0].text;
@@ -65,7 +65,7 @@ describe('handleComparePeriods', () => {
         period_b_end: '2026-02-28',
         group_by: 'service',
       },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     const text = result.content[0].text;
@@ -83,7 +83,7 @@ describe('handleComparePeriods', () => {
         period_b_end: '2026-02-28',
         group_by: 'service',
       },
-      { azure: null },
+      { azure: null, gcp: null },
     );
 
     expect(result.isError).toBe(true);

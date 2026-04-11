@@ -14,7 +14,7 @@ describe('handleFindIdleResources', () => {
 
     const result = await handleFindIdleResources(
       { provider: 'azure' },
-      { azure: mockClient as any },
+      { azure: mockClient as any, gcp: null },
     );
 
     const text = result.content[0].text;
@@ -30,7 +30,7 @@ describe('handleFindIdleResources', () => {
 
     const result = await handleFindIdleResources(
       { provider: 'azure' },
-      { azure: mockClient as any },
+      { azure: mockClient as any, gcp: null },
     );
 
     expect(result.content[0].text).toContain('No idle resources found');
@@ -39,7 +39,7 @@ describe('handleFindIdleResources', () => {
   it('returns error when not configured', async () => {
     const result = await handleFindIdleResources(
       { provider: 'azure' },
-      { azure: null },
+      { azure: null, gcp: null },
     );
 
     expect(result.isError).toBe(true);

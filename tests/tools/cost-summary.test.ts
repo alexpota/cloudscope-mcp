@@ -21,7 +21,7 @@ describe('handleGetCostSummary', () => {
 
     const result = await handleGetCostSummary(
       { provider: 'azure', start_date: '2026-03-01', end_date: '2026-03-31', group_by: 'service' },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     const text = result.content[0].text;
@@ -33,7 +33,7 @@ describe('handleGetCostSummary', () => {
   it('returns error when Azure is not configured', async () => {
     const result = await handleGetCostSummary(
       { provider: 'azure', start_date: '2026-03-01', end_date: '2026-03-31', group_by: 'service' },
-      { azure: null },
+      { azure: null, gcp: null },
     );
 
     expect(result.content[0].text).toContain('not configured');
@@ -48,7 +48,7 @@ describe('handleGetCostSummary', () => {
 
     await handleGetCostSummary(
       { provider: 'azure', start_date: '2026-03-01', end_date: '2026-03-31', group_by: 'resource_group' },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     expect(mockAzureClient.queryCosts).toHaveBeenCalledWith('2026-03-01', '2026-03-31', 'resource_group');
@@ -59,7 +59,7 @@ describe('handleGetCostSummary', () => {
 
     const result = await handleGetCostSummary(
       { provider: 'azure', start_date: '2026-03-01', end_date: '2026-03-31', group_by: 'service' },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     expect(result.content[0].text).toContain('Network timeout');
@@ -69,7 +69,7 @@ describe('handleGetCostSummary', () => {
   it('rejects invalid date format', async () => {
     const result = await handleGetCostSummary(
       { provider: 'azure', start_date: 'yesterday', end_date: '2026-03-31', group_by: 'service' },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     expect(result.isError).toBe(true);
@@ -80,7 +80,7 @@ describe('handleGetCostSummary', () => {
   it('rejects start_date after end_date', async () => {
     const result = await handleGetCostSummary(
       { provider: 'azure', start_date: '2026-03-31', end_date: '2026-03-01', group_by: 'service' },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     expect(result.isError).toBe(true);
@@ -105,7 +105,7 @@ describe('handleGetCostSummary', () => {
 
       const result = await handleGetCostSummary(
         { provider: 'azure', group_by: 'service' },
-        { azure: mockAzureClient as any },
+        { azure: mockAzureClient as any, gcp: null },
       );
 
       expect(mockAzureClient.queryCosts).toHaveBeenCalledWith('2026-04-01', '2026-04-15', 'service');

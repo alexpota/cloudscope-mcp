@@ -5,6 +5,7 @@ export type ToolResult = CallToolResult;
 
 export interface Providers {
   azure: CloudCostProvider | null;
+  gcp: CloudCostProvider | null;
 }
 
 export function toolResult(text: string): ToolResult {
@@ -18,7 +19,7 @@ export function toolError(error: unknown): ToolResult {
 
 export async function withProvider(
   providers: Providers,
-  providerName: 'azure',
+  providerName: 'azure' | 'gcp',
   handler: (provider: CloudCostProvider) => Promise<ToolResult>,
 ): Promise<ToolResult> {
   const provider = providers[providerName];

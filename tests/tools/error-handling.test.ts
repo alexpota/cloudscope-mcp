@@ -29,7 +29,7 @@ describe('Azure API error handling', () => {
       const client = makeAzureClient({ queryCosts: vi.fn().mockRejectedValue(authError) });
       const result = await handleGetCostSummary(
         { provider: 'azure', start_date: '2026-03-01', end_date: '2026-03-31', group_by: 'service' },
-        { azure: client as any },
+        { azure: client as any, gcp: null },
       );
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Authentication failed');
@@ -39,7 +39,7 @@ describe('Azure API error handling', () => {
       const client = makeAzureClient({ queryCosts: vi.fn().mockRejectedValue(authError) });
       const result = await handleDetectAnomalies(
         { provider: 'azure', days: 7, threshold: 20 },
-        { azure: client as any },
+        { azure: client as any, gcp: null },
       );
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Authentication failed');
@@ -49,7 +49,7 @@ describe('Azure API error handling', () => {
       const client = makeAzureClient({ getRecommendations: vi.fn().mockRejectedValue(authError) });
       const result = await handleListRecommendations(
         { provider: 'azure', category: 'all' },
-        { azure: client as any },
+        { azure: client as any, gcp: null },
       );
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Authentication failed');
@@ -59,7 +59,7 @@ describe('Azure API error handling', () => {
       const client = makeAzureClient({ forecastCosts: vi.fn().mockRejectedValue(authError) });
       const result = await handleGetCostForecast(
         { provider: 'azure', days: 30 },
-        { azure: client as any },
+        { azure: client as any, gcp: null },
       );
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Authentication failed');
@@ -76,7 +76,7 @@ describe('Azure API error handling', () => {
       const client = makeAzureClient({ queryCosts: vi.fn().mockRejectedValue(rateLimitError) });
       const result = await handleGetCostSummary(
         { provider: 'azure', start_date: '2026-03-01', end_date: '2026-03-31', group_by: 'service' },
-        { azure: client as any },
+        { azure: client as any, gcp: null },
       );
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Too many requests');
@@ -86,7 +86,7 @@ describe('Azure API error handling', () => {
       const client = makeAzureClient({ queryCosts: vi.fn().mockRejectedValue(rateLimitError) });
       const result = await handleDetectAnomalies(
         { provider: 'azure', days: 7, threshold: 20 },
-        { azure: client as any },
+        { azure: client as any, gcp: null },
       );
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Too many requests');
@@ -103,7 +103,7 @@ describe('Azure API error handling', () => {
       const client = makeAzureClient({ queryCosts: vi.fn().mockRejectedValue(serverError) });
       const result = await handleGetCostSummary(
         { provider: 'azure', start_date: '2026-03-01', end_date: '2026-03-31', group_by: 'service' },
-        { azure: client as any },
+        { azure: client as any, gcp: null },
       );
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Internal server error');
@@ -113,7 +113,7 @@ describe('Azure API error handling', () => {
       const client = makeAzureClient({ getRecommendations: vi.fn().mockRejectedValue(serverError) });
       const result = await handleListRecommendations(
         { provider: 'azure', category: 'all' },
-        { azure: client as any },
+        { azure: client as any, gcp: null },
       );
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('Internal server error');
@@ -128,7 +128,7 @@ describe('Azure API error handling', () => {
       const client = makeAzureClient({ queryCosts: vi.fn().mockRejectedValue(timeoutError) });
       const result = await handleGetCostSummary(
         { provider: 'azure', start_date: '2026-03-01', end_date: '2026-03-31', group_by: 'service' },
-        { azure: client as any },
+        { azure: client as any, gcp: null },
       );
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('aborted');
@@ -138,7 +138,7 @@ describe('Azure API error handling', () => {
       const client = makeAzureClient({ forecastCosts: vi.fn().mockRejectedValue(timeoutError) });
       const result = await handleGetCostForecast(
         { provider: 'azure', days: 30 },
-        { azure: client as any },
+        { azure: client as any, gcp: null },
       );
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('aborted');
@@ -150,7 +150,7 @@ describe('Azure API error handling', () => {
       const client = makeAzureClient({ queryCosts: vi.fn().mockRejectedValue('raw string error') });
       const result = await handleGetCostSummary(
         { provider: 'azure', start_date: '2026-03-01', end_date: '2026-03-31', group_by: 'service' },
-        { azure: client as any },
+        { azure: client as any, gcp: null },
       );
       expect(result.isError).toBe(true);
       expect(result.content[0].text).toContain('raw string error');
