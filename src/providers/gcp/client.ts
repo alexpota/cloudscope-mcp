@@ -20,11 +20,14 @@ import {
 } from '../../constants.js';
 import { Cache } from '../../utils/cache.js';
 import { createRateLimiter, withRetry, type RateLimiter } from '../../utils/rate-limit.js';
+import { linearForecast } from '../../utils/forecast.js';
+import { toDateString } from '../../utils/dates.js';
 import { isGcpThrottlingError } from './throttling.js';
 import {
   GCP_GROUPING_MAP,
   buildCostQuery,
   COST_BY_TAG_QUERY,
+  DAILY_COST_QUERY,
   VALIDATE_QUERY,
   DETAILED_EXPORT_PROBE,
   interpolateTable,
@@ -39,6 +42,7 @@ export class GcpCostClient implements CloudCostProvider {
   readonly billingAccountId: string | undefined;
   private readonly rateLimiter: RateLimiter;
   private readonly queryCache: Cache<CostQueryResult>;
+  private readonly forecastCache: Cache<ForecastResult>;
 
   /** Set during validate() — indicates whether resource.name column exists. */
   private hasDetailedExport = false;
@@ -50,6 +54,7 @@ export class GcpCostClient implements CloudCostProvider {
     this.billingAccountId = config.billingAccountId;
     this.rateLimiter = createRateLimiter({ concurrency: GCP_BIGQUERY_CONCURRENCY });
     this.queryCache = new Cache<CostQueryResult>(DEFAULT_CACHE_TTL_SECONDS, MAX_CACHE_ENTRIES);
+    this.forecastCache = new Cache<ForecastResult>(DEFAULT_CACHE_TTL_SECONDS, MAX_CACHE_ENTRIES);
   }
 
   /** Lazily initializes and returns the BigQuery client. */
@@ -135,8 +140,38 @@ export class GcpCostClient implements CloudCostProvider {
     });
   }
 
-  async forecastCosts(_startDate: string, _endDate: string): Promise<ForecastResult> {
-    throw new Error('GCP forecastCosts not yet implemented');
+  async forecastCosts(startDate: string, endDate: string): Promise<ForecastResult> {
+    const key = JSON.stringify({ startDate, endDate, type: 'forecast' });
+
+    return this.forecastCache.getOrFetch(key, async () => {
+      // Fetch 30 days of historical data ending at startDate for trend computation
+      const historyEnd = startDate;
+      const historyStart = toDateString(
+        new Date(new Date(startDate).getTime() - 30 * 86400000),
+      );
+
+      const rows = await this.runQuery(DAILY_COST_QUERY, {
+        startDate: historyStart,
+        endDate: historyEnd,
+      });
+
+      const historical = rows.map((r) => ({
+        date: String(r['date'] ?? ''),
+        cost: Number(r['cost'] ?? 0),
+      }));
+
+      const forecastDays = Math.max(
+        1,
+        Math.ceil(
+          (new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000,
+        ),
+      );
+
+      const forecastRows = linearForecast(historical, forecastDays);
+      const currency = String(rows[0]?.['currency'] ?? DEFAULT_CURRENCY);
+
+      return { rows: forecastRows, currency };
+    });
   }
 
   async getRecommendations(_category?: string): Promise<Recommendation[]> {

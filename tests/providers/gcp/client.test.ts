@@ -168,6 +168,56 @@ describe('GcpCostClient', () => {
     });
   });
 
+  describe('forecastCosts', () => {
+    it('returns actual + forecast rows using linear regression', async () => {
+      // Historical data: 30 daily cost rows with linear trend (100, 110, 120, ...)
+      const historyRows = Array.from({ length: 30 }, (_, i) => ({
+        date: `2026-03-${String(i + 1).padStart(2, '0')}`,
+        cost: 100 + i * 10,
+        currency: 'USD',
+      }));
+      mockQuery.mockResolvedValueOnce([historyRows]);
+
+      const client = createClient();
+      const result = await client.forecastCosts('2026-03-31', '2026-04-07');
+
+      // Should have 30 actual + 7 forecast
+      const actuals = result.rows.filter((r) => r.costType === 'Actual');
+      const forecasts = result.rows.filter((r) => r.costType === 'Forecast');
+
+      expect(actuals.length).toBe(30);
+      expect(forecasts.length).toBe(7);
+      expect(result.currency).toBe('USD');
+      // Forecasts should be increasing (positive slope)
+      expect(forecasts[0]!.cost).toBeGreaterThan(actuals[actuals.length - 1]!.cost);
+    });
+
+    it('returns empty rows when no historical data', async () => {
+      mockQuery.mockResolvedValueOnce([[]]);
+
+      const client = createClient();
+      const result = await client.forecastCosts('2026-04-01', '2026-04-07');
+
+      expect(result.rows).toHaveLength(0);
+      expect(result.currency).toBe('USD');
+    });
+
+    it('caches identical forecast requests', async () => {
+      mockQuery.mockResolvedValue([
+        [
+          { date: '2026-03-30', cost: 100, currency: 'USD' },
+          { date: '2026-03-31', cost: 110, currency: 'USD' },
+        ],
+      ]);
+
+      const client = createClient();
+      await client.forecastCosts('2026-03-31', '2026-04-03');
+      await client.forecastCosts('2026-03-31', '2026-04-03');
+
+      expect(mockQuery).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('validate', () => {
     it('returns connected: true when BigQuery query succeeds', async () => {
       // First call: validate query
@@ -224,13 +274,6 @@ describe('GcpCostClient', () => {
   });
 
   describe('not yet implemented methods', () => {
-    it('forecastCosts throws', async () => {
-      const client = createClient();
-      await expect(client.forecastCosts('2026-04-01', '2026-04-30')).rejects.toThrow(
-        'not yet implemented',
-      );
-    });
-
     it('getRecommendations throws', async () => {
       const client = createClient();
       await expect(client.getRecommendations()).rejects.toThrow('not yet implemented');
