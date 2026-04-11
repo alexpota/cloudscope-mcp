@@ -4,7 +4,7 @@ import { DEFAULT_CURRENCY } from '../constants.js';
 import { toolResult, toolError, withProvider, type ToolResult, type Providers } from './types.js';
 
 interface CompareInput {
-  provider: 'azure';
+  provider: 'azure' | 'gcp';
   period_a_start: string;
   period_a_end: string;
   period_b_start: string;

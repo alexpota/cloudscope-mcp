@@ -4,7 +4,7 @@ import { toDateString } from '../utils/dates.js';
 import { MS_PER_DAY, COST_STATUS_FORECAST, COST_STATUS_ACTUAL } from '../constants.js';
 
 interface ForecastInput {
-  provider: 'azure';
+  provider: 'azure' | 'gcp';
   days: number;
 }
 

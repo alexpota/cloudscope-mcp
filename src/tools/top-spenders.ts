@@ -4,7 +4,7 @@ import { toDateString } from '../utils/dates.js';
 import { MS_PER_DAY } from '../constants.js';
 
 interface TopSpendersInput {
-  provider: 'azure';
+  provider: 'azure' | 'gcp';
   days: number;
   limit: number;
 }

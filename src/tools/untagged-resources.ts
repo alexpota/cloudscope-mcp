@@ -2,7 +2,7 @@ import { formatTable } from '../utils/formatter.js';
 import { toolResult, withProvider, type ToolResult, type Providers } from './types.js';
 
 interface UntaggedResourcesInput {
-  provider: 'azure';
+  provider: 'azure' | 'gcp';
 }
 
 export async function handleFindUntaggedResources(

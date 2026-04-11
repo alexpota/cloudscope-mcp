@@ -64,7 +64,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Returns a cost breakdown for a date range grouped by service, resource group, tag, or region. Defaults to current month if dates are omitted. Output includes a sorted table with each group name, cost in USD, and percentage of total. Includes a total row, daily average, and collapses groups beyond the top 10 into an "Other" row. Returns an error if the date range is invalid. Use this when the user asks "how much am I spending", "what costs the most", "show me my Azure bill", or wants a spending overview.',
       inputSchema: {
-        provider: z.literal('azure').describe('Cloud provider to query'),
+        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
         start_date: z
           .string()
           .optional()
@@ -86,7 +86,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Compares daily spending over the last N days against the prior N days to find cost spikes. Returns a list of services where spending increased above the threshold percentage, sorted by increase amount. Each entry includes service name, previous average, current average, percentage change, and absolute change in USD. Returns an empty list if no anomalies found. Use this when the user asks about unexpected cost increases, billing surprises, or wants to know if anything changed recently.',
       inputSchema: {
-        provider: z.literal('azure').describe('Cloud provider to query'),
+        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
         days: z
           .number()
           .default(DEFAULT_ANOMALY_DAYS)
@@ -107,7 +107,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Fetches cost-saving recommendations from Azure Advisor filtered by category. Returns a list of recommendations each containing: title, category, impact level (high/medium/low), estimated annual savings in USD, affected resource ID, and a short description of the suggested action. Returns an empty list if no recommendations exist for the selected category. Use this when the user wants to reduce costs, find waste, or optimize resource usage.',
       inputSchema: {
-        provider: z.literal('azure').describe('Cloud provider to query'),
+        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
         category: z
           .enum(['all', 'compute', 'storage', 'networking'])
           .default('all')
@@ -124,7 +124,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Projects future cloud spending for the next N days using a linear trend based on the last 30 days of actual costs. Returns the forecast period dates, projected total cost in USD, average daily projected cost, and the confidence basis (number of historical days used). Use this when the user asks "how much will I spend this month", wants to predict upcoming bills, or needs to plan budgets. Returns an error if insufficient historical data exists.',
       inputSchema: {
-        provider: z.literal('azure').describe('Cloud provider to query'),
+        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
         days: z
           .number()
           .default(DEFAULT_FORECAST_DAYS)
@@ -141,7 +141,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Check Azure budget status: current spend vs limit, percentage used, forecast, and overage risk',
       inputSchema: {
-        provider: z.literal('azure').describe('Cloud provider to query'),
+        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
       },
     },
     async (input) => handleCheckBudgets(input, providers),
@@ -154,7 +154,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Compare costs between two date ranges, showing per-service absolute and percentage changes',
       inputSchema: {
-        provider: z.literal('azure').describe('Cloud provider to query'),
+        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
         period_a_start: z.string().describe('Period A start date (YYYY-MM-DD)'),
         period_a_end: z.string().describe('Period A end date (YYYY-MM-DD)'),
         period_b_start: z.string().describe('Period B start date (YYYY-MM-DD)'),
@@ -174,7 +174,7 @@ export async function createServer(): Promise<McpServer> {
       title: 'Top Spending Resources',
       description: 'Find the N most expensive individual Azure resources over a time period',
       inputSchema: {
-        provider: z.literal('azure').describe('Cloud provider to query'),
+        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
         days: z
           .number()
           .default(DEFAULT_TOP_RESOURCES_DAYS)
@@ -195,7 +195,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Breaks down costs by a specific tag key such as team, environment, or project. Returns a sorted table with each tag value, cost in USD, and percentage of total. Includes a total row and daily average. Returns an error if the date range is invalid or no tagged costs exist. Use this when the user asks about costs per team, per environment, cost allocation, chargeback, or wants to understand spending by any custom tag.',
       inputSchema: {
-        provider: z.literal('azure').describe('Cloud provider to query'),
+        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
         tag_key: z
           .string()
           .describe('Tag key to group costs by (e.g. team, environment, project)'),
@@ -219,7 +219,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Finds Azure resources that are provisioned but not actively used — unattached managed disks, orphaned network interfaces, unused public IPs, and empty App Service plans. Returns each resource with its name, type, resource group, reason it is idle, and estimated monthly cost in USD based on the last 30 days. Returns an empty list if no idle resources are found. Use this when the user asks about waste, idle or unused resources, cleanup opportunities, or wants to find resources to delete to reduce costs.',
       inputSchema: {
-        provider: z.literal('azure').describe('Cloud provider to query'),
+        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
       },
     },
     async (input) => handleFindIdleResources(input, providers),
@@ -232,7 +232,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Finds resources in the subscription that have no tags applied. Returns each resource with its name, type, resource group, and location. Untagged resources cannot be attributed to teams or projects, making cost allocation and chargeback impossible. Returns an empty list if all resources are tagged. Use this when the user asks about tagging compliance, governance, cost attribution gaps, or wants to identify resources that need tags.',
       inputSchema: {
-        provider: z.literal('azure').describe('Cloud provider to query'),
+        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
       },
     },
     async (input) => handleFindUntaggedResources(input, providers),
@@ -245,7 +245,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Returns a combined cost breakdown across multiple Azure subscriptions sorted by total spend. Each subscription shows its name, total cost in USD, and percentage of the combined total. Handles partial failures gracefully — if some subscriptions are inaccessible, returns results for the rest with a warning. Use this when the user asks about costs across all subscriptions, wants to compare subscription spending, or needs an organization-wide cost overview.',
       inputSchema: {
-        provider: z.literal('azure').describe('Cloud provider to query'),
+        provider: z.literal('azure').describe('Cloud provider (Azure-only tool)'),
         subscription_ids: z
           .array(z.string())
           .optional()
@@ -282,7 +282,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Returns all Azure subscriptions the current credential can access, with name, ID, and state. Shows which subscription is currently active. Use this when the user has multiple subscriptions and wants to see which ones are available, or to confirm which subscription is being queried.',
       inputSchema: {
-        provider: z.literal('azure').describe('Cloud provider to query'),
+        provider: z.literal('azure').describe('Cloud provider (Azure-only tool)'),
       },
     },
     () => {

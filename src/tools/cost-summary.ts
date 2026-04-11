@@ -4,7 +4,7 @@ import { toolResult, toolError, withProvider, type ToolResult, type Providers } 
 import type { GroupByKey } from '../providers/types.js';
 
 interface CostSummaryInput {
-  provider: 'azure';
+  provider: 'azure' | 'gcp';
   start_date?: string;
   end_date?: string;
   group_by: 'service' | 'resource_group' | 'tag' | 'region';

@@ -8,7 +8,7 @@ import {
 } from '../constants.js';
 
 interface BudgetsInput {
-  provider: 'azure';
+  provider: 'azure' | 'gcp';
 }
 
 export async function handleCheckBudgets(

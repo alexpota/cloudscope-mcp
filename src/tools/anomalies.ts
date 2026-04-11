@@ -4,7 +4,7 @@ import { toDateString } from '../utils/dates.js';
 import { MS_PER_DAY, NEW_SERVICE_CHANGE_PERCENT, DEFAULT_CURRENCY } from '../constants.js';
 
 interface AnomaliesInput {
-  provider: 'azure';
+  provider: 'azure' | 'gcp';
   days: number;
   threshold: number;
 }
