@@ -13,6 +13,7 @@ import {
   DEFAULT_CACHE_TTL_SECONDS,
   DEFAULT_CURRENCY,
   GCP_BIGQUERY_CONCURRENCY,
+  GCP_RECOMMENDER_CONCURRENCY,
   GCP_RETRY_MAX_ATTEMPTS,
   GCP_RETRY_BASE_DELAY_MS,
   GCP_RETRY_MAX_DELAY_MS,
@@ -41,8 +42,11 @@ export class GcpCostClient implements CloudCostProvider {
   readonly billingTable: string;
   readonly billingAccountId: string | undefined;
   private readonly rateLimiter: RateLimiter;
+  private readonly recommenderLimiter: RateLimiter;
   private readonly queryCache: Cache<CostQueryResult>;
   private readonly forecastCache: Cache<ForecastResult>;
+  private readonly recommendationsCache: Cache<Recommendation[]>;
+  private readonly idleCache: Cache<IdleResource[]>;
 
   /** Set during validate() — indicates whether resource.name column exists. */
   private hasDetailedExport = false;
@@ -53,8 +57,14 @@ export class GcpCostClient implements CloudCostProvider {
     this.billingTable = config.billingTable;
     this.billingAccountId = config.billingAccountId;
     this.rateLimiter = createRateLimiter({ concurrency: GCP_BIGQUERY_CONCURRENCY });
+    this.recommenderLimiter = createRateLimiter({ concurrency: GCP_RECOMMENDER_CONCURRENCY });
     this.queryCache = new Cache<CostQueryResult>(DEFAULT_CACHE_TTL_SECONDS, MAX_CACHE_ENTRIES);
     this.forecastCache = new Cache<ForecastResult>(DEFAULT_CACHE_TTL_SECONDS, MAX_CACHE_ENTRIES);
+    this.recommendationsCache = new Cache<Recommendation[]>(
+      DEFAULT_CACHE_TTL_SECONDS,
+      MAX_CACHE_ENTRIES,
+    );
+    this.idleCache = new Cache<IdleResource[]>(DEFAULT_CACHE_TTL_SECONDS, MAX_CACHE_ENTRIES);
   }
 
   /** Lazily initializes and returns the BigQuery client. */
@@ -174,8 +184,129 @@ export class GcpCostClient implements CloudCostProvider {
     });
   }
 
-  async getRecommendations(_category?: string): Promise<Recommendation[]> {
-    throw new Error('GCP getRecommendations not yet implemented');
+  /** Lists active zones from Compute Engine to scope Recommender calls. */
+  private async listActiveZones(): Promise<string[]> {
+    const { ZonesClient } = await import('@google-cloud/compute');
+    const client = new ZonesClient({ fallback: true });
+    const [zones] = await this.recommenderLimiter.run(() =>
+      client.list({ project: this.projectId }),
+    );
+    return (zones ?? [])
+      .filter((z) => z.status === 'UP')
+      .map((z) => z.name ?? '')
+      .filter(Boolean);
+  }
+
+  /** Cost recommender IDs for optimization suggestions. */
+  private static readonly COST_RECOMMENDER_IDS = [
+    'google.compute.instance.MachineTypeRecommender',
+    'google.compute.commitment.UsageCommitmentRecommender',
+  ] as const;
+
+  /** Idle resource recommender IDs. */
+  private static readonly IDLE_RECOMMENDER_IDS = [
+    'google.compute.instance.IdleResourceRecommender',
+    'google.compute.disk.IdleResourceRecommender',
+    'google.compute.address.IdleResourceRecommender',
+    'google.compute.image.IdleResourceRecommender',
+    'google.cloudsql.instance.IdleRecommender',
+  ] as const;
+
+  /** Extracts monetary savings from a recommendation's primary impact. */
+  private static extractSavings(rec: {
+    primaryImpact?: {
+      costProjection?: {
+        cost?: { units?: string | number | Long | null; nanos?: number | null; currencyCode?: string | null };
+      };
+    };
+  }): { amount: number; currency: string } | undefined {
+    const cost = rec.primaryImpact?.costProjection?.cost;
+    if (!cost) return undefined;
+    const units = Number(cost.units ?? 0);
+    const nanos = Number(cost.nanos ?? 0);
+    // GCP savings are negative (cost reduction), so negate
+    const amount = Math.abs(units + nanos / 1e9);
+    if (amount === 0) return undefined;
+    return { amount, currency: String(cost.currencyCode ?? DEFAULT_CURRENCY) };
+  }
+
+  /**
+   * Fetches recommendations from the GCP Recommender API.
+   * Iterates over active zones and the specified recommender IDs.
+   */
+  private async fetchRecommendations(
+    recommenderIds: readonly string[],
+  ): Promise<
+    Array<{
+      name: string;
+      description: string;
+      recommenderSubtype: string;
+      primaryImpact?: unknown;
+      content?: unknown;
+    }>
+  > {
+    const { RecommenderClient } = await import('@google-cloud/recommender');
+    const client = new RecommenderClient({ fallback: true });
+
+    let zones: string[];
+    try {
+      zones = await this.listActiveZones();
+    } catch {
+      zones = [];
+    }
+    // Also include region-level recommenders (e.g., Cloud SQL uses regions)
+    const locations = [...zones, ...new Set(zones.map((z) => z.replace(/-[a-z]$/, '')))];
+
+    const results: Array<Record<string, unknown>> = [];
+
+    await Promise.all(
+      recommenderIds.flatMap((rid) =>
+        locations.map((loc) =>
+          this.recommenderLimiter.run(async () => {
+            try {
+              const parent = `projects/${this.projectId}/locations/${loc}/recommenders/${rid}`;
+              const [recs] = await client.listRecommendations({ parent });
+              for (const rec of recs) {
+                results.push(rec as unknown as Record<string, unknown>);
+              }
+            } catch {
+              // Location may not support this recommender — skip silently
+            }
+          }),
+        ),
+      ),
+    );
+
+    return results as Array<{
+      name: string;
+      description: string;
+      recommenderSubtype: string;
+      primaryImpact?: unknown;
+      content?: unknown;
+    }>;
+  }
+
+  async getRecommendations(category?: string): Promise<Recommendation[]> {
+    const key = JSON.stringify({ category: category ?? 'all' });
+
+    return this.recommendationsCache.getOrFetch(key, async () => {
+      const recs = await this.fetchRecommendations(GcpCostClient.COST_RECOMMENDER_IDS);
+
+      return recs.map((rec) => {
+        const savings = GcpCostClient.extractSavings(
+          rec as Parameters<typeof GcpCostClient.extractSavings>[0],
+        );
+        return {
+          id: rec.name ?? '',
+          category: 'Cost',
+          impact: savings ? 'High' : 'Medium',
+          description: rec.description ?? rec.recommenderSubtype ?? 'Cost optimization',
+          savingsAmount: savings?.amount,
+          savingsCurrency: savings?.currency,
+          resourceId: rec.name,
+        };
+      });
+    });
   }
 
   async listBudgets(): Promise<BudgetInfo[]> {
@@ -183,7 +314,23 @@ export class GcpCostClient implements CloudCostProvider {
   }
 
   async findIdleResources(): Promise<IdleResource[]> {
-    throw new Error('GCP findIdleResources not yet implemented');
+    return this.idleCache.getOrFetch('idle', async () => {
+      const recs = await this.fetchRecommendations(GcpCostClient.IDLE_RECOMMENDER_IDS);
+
+      return recs.map((rec) => {
+        const savings = GcpCostClient.extractSavings(
+          rec as Parameters<typeof GcpCostClient.extractSavings>[0],
+        );
+        return {
+          name: rec.name?.split('/').pop() ?? rec.name ?? '',
+          type: rec.recommenderSubtype ?? 'unknown',
+          resourceGroup: this.projectId,
+          reason: rec.description ?? 'Idle resource',
+          estimatedMonthlyCost: savings?.amount ?? 0,
+          currency: savings?.currency ?? DEFAULT_CURRENCY,
+        };
+      });
+    });
   }
 
   async findUntaggedResources(): Promise<UntaggedResource[]> {

@@ -1,10 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const mockQuery = vi.fn();
+const mockListRecommendations = vi.fn();
+const mockListZones = vi.fn();
 
 vi.mock('@google-cloud/bigquery', () => ({
   BigQuery: vi.fn().mockImplementation(() => ({
     query: mockQuery,
+  })),
+}));
+
+vi.mock('@google-cloud/recommender', () => ({
+  RecommenderClient: vi.fn().mockImplementation(() => ({
+    listRecommendations: mockListRecommendations,
+  })),
+}));
+
+vi.mock('@google-cloud/compute', () => ({
+  ZonesClient: vi.fn().mockImplementation(() => ({
+    list: mockListZones,
   })),
 }));
 
@@ -273,20 +287,82 @@ describe('GcpCostClient', () => {
     });
   });
 
-  describe('not yet implemented methods', () => {
-    it('getRecommendations throws', async () => {
+  describe('getRecommendations', () => {
+    it('returns recommendations from Recommender API', async () => {
+      mockListZones.mockResolvedValueOnce([
+        [{ name: 'us-central1-a', status: 'UP' }],
+      ]);
+      mockListRecommendations.mockResolvedValue([
+        [
+          {
+            name: 'projects/p/locations/us-central1-a/recommenders/google.compute.instance.MachineTypeRecommender/recommendations/rec-1',
+            description: 'Resize VM to e2-medium',
+            recommenderSubtype: 'CHANGE_MACHINE_TYPE',
+            primaryImpact: {
+              costProjection: {
+                cost: { units: '-50', nanos: 0, currencyCode: 'USD' },
+              },
+            },
+          },
+        ],
+      ]);
+
       const client = createClient();
-      await expect(client.getRecommendations()).rejects.toThrow('not yet implemented');
+      const recs = await client.getRecommendations();
+
+      expect(recs.length).toBeGreaterThan(0);
+      expect(recs[0]?.description).toBe('Resize VM to e2-medium');
+      expect(recs[0]?.savingsAmount).toBe(50);
+      expect(recs[0]?.category).toBe('Cost');
     });
 
+    it('returns empty array when no zones available', async () => {
+      mockListZones.mockRejectedValueOnce(new Error('No compute API'));
+      // No zones → no locations → no calls
+      mockListRecommendations.mockResolvedValue([[]]);
+
+      const client = createClient();
+      const recs = await client.getRecommendations();
+
+      // Should still return (empty) without throwing
+      expect(recs).toEqual([]);
+    });
+  });
+
+  describe('findIdleResources', () => {
+    it('returns idle resources from Recommender API', async () => {
+      mockListZones.mockResolvedValueOnce([
+        [{ name: 'us-east1-b', status: 'UP' }],
+      ]);
+      mockListRecommendations.mockResolvedValue([
+        [
+          {
+            name: 'projects/p/locations/us-east1-b/recommenders/google.compute.disk.IdleResourceRecommender/recommendations/disk-rec',
+            description: 'Delete idle persistent disk',
+            recommenderSubtype: 'DELETE_DISK',
+            primaryImpact: {
+              costProjection: {
+                cost: { units: '-10', nanos: -500000000, currencyCode: 'USD' },
+              },
+            },
+          },
+        ],
+      ]);
+
+      const client = createClient();
+      const resources = await client.findIdleResources();
+
+      expect(resources.length).toBeGreaterThan(0);
+      expect(resources[0]?.reason).toBe('Delete idle persistent disk');
+      expect(resources[0]?.estimatedMonthlyCost).toBeCloseTo(10.5, 1);
+      expect(resources[0]?.resourceGroup).toBe('test-project');
+    });
+  });
+
+  describe('not yet implemented methods', () => {
     it('listBudgets throws', async () => {
       const client = createClient();
       await expect(client.listBudgets()).rejects.toThrow('not yet implemented');
-    });
-
-    it('findIdleResources throws', async () => {
-      const client = createClient();
-      await expect(client.findIdleResources()).rejects.toThrow('not yet implemented');
     });
 
     it('findUntaggedResources throws', async () => {
