@@ -12,4 +12,14 @@ export default defineConfig({
   clean: true,
   banner: { js: '#!/usr/bin/env node' },
   define: { __PKG_VERSION__: JSON.stringify(pkg.version) },
+  // GCP SDKs loaded via dynamic import() — keep external so the base bundle
+  // stays small for Azure-only users. Resolved from node_modules at runtime.
+  external: [
+    '@google-cloud/bigquery',
+    '@google-cloud/recommender',
+    '@google-cloud/asset',
+    '@google-cloud/billing-budgets',
+    '@google-cloud/resource-manager',
+    '@google-cloud/compute',
+  ],
 });

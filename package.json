@@ -77,6 +77,12 @@
     "@azure/arm-resourcegraph": "^4.2.1",
     "@azure/arm-resources-subscriptions": "^2.1.0",
     "@azure/identity": "^4.0.0",
+    "@google-cloud/asset": "^6.3.1",
+    "@google-cloud/bigquery": "^8.1.1",
+    "@google-cloud/billing-budgets": "^6.1.1",
+    "@google-cloud/compute": "^6.9.0",
+    "@google-cloud/recommender": "^7.2.1",
+    "@google-cloud/resource-manager": "^6.2.1",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^4.0.0"
   },
