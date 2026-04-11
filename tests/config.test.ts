@@ -46,25 +46,25 @@ describe('config', () => {
     });
   });
 
-  it('prefers GCP_PROJECT_ID over GOOGLE_CLOUD_PROJECT', async () => {
+  it('prefers GOOGLE_CLOUD_PROJECT over GCP_PROJECT_ID', async () => {
+    vi.stubEnv('GOOGLE_CLOUD_PROJECT', 'default-project');
     vi.stubEnv('GCP_PROJECT_ID', 'override-project');
-    vi.stubEnv('GOOGLE_CLOUD_PROJECT', 'default-project');
-    vi.stubEnv('GCP_BILLING_TABLE', 'table');
-
-    const { getConfig } = await import('../src/config.js');
-    const config = getConfig();
-
-    expect(config.gcp.projectId).toBe('override-project');
-  });
-
-  it('falls back to GOOGLE_CLOUD_PROJECT when GCP_PROJECT_ID is unset', async () => {
-    vi.stubEnv('GOOGLE_CLOUD_PROJECT', 'default-project');
     vi.stubEnv('GCP_BILLING_TABLE', 'table');
 
     const { getConfig } = await import('../src/config.js');
     const config = getConfig();
 
     expect(config.gcp.projectId).toBe('default-project');
+  });
+
+  it('falls back to GCP_PROJECT_ID when GOOGLE_CLOUD_PROJECT is unset', async () => {
+    vi.stubEnv('GCP_PROJECT_ID', 'override-project');
+    vi.stubEnv('GCP_BILLING_TABLE', 'table');
+
+    const { getConfig } = await import('../src/config.js');
+    const config = getConfig();
+
+    expect(config.gcp.projectId).toBe('override-project');
   });
 
   it('returns GCP config with empty strings when no GCP env vars set', async () => {

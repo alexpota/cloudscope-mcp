@@ -34,7 +34,7 @@ function getAzureConfig(): AzureConfig {
 
 function getGcpConfig(): GcpConfig {
   return {
-    projectId: process.env.GCP_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT || '',
+    projectId: process.env.GOOGLE_CLOUD_PROJECT || process.env.GCP_PROJECT_ID || '',
     billingTable: process.env.GCP_BILLING_TABLE || '',
     billingAccountId: process.env.GCP_BILLING_ACCOUNT_ID || undefined,
   };
