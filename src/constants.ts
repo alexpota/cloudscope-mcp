@@ -16,13 +16,6 @@ export const MAX_CACHE_ENTRIES = 100;
 // Date validation
 export const DATE_FORMAT_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
-// Cost grouping dimension mapping
-export const GROUP_BY_MAP: Record<string, string> = {
-  service: 'ServiceName',
-  resource_group: 'ResourceGroup',
-  region: 'ResourceLocation',
-};
-
 export const HTTP_STATUS_TOO_MANY_REQUESTS = 429;
 
 // Azure SDK surfaces 429 as either `statusCode: 429` or these `code` values.
@@ -55,7 +48,6 @@ export const AZURE_COST_AGGREGATION_NAME = 'Cost';
 export const AZURE_COST_AGGREGATION_FUNCTION = 'Sum';
 export const AZURE_GROUPING_TYPE = 'Dimension';
 export const AZURE_TAG_GROUPING_TYPE = 'TagKey';
-export const AZURE_RESOURCE_ID_DIMENSION = 'ResourceId';
 export const AZURE_TAG_VALUE_COLUMN = 'TagValue';
 export const AZURE_GRANULARITY_NONE = 'None';
 export const AZURE_GRANULARITY_DAILY = 'Daily';

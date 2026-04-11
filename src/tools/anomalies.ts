@@ -21,8 +21,8 @@ export async function handleDetectAnomalies(
     const previousStart = toDateString(new Date(now.getTime() - input.days * 2 * MS_PER_DAY));
 
     const [current, previous] = await Promise.all([
-      provider.queryCosts(currentStart, currentEnd, 'ServiceName'),
-      provider.queryCosts(previousStart, previousEnd, 'ServiceName'),
+      provider.queryCosts(currentStart, currentEnd, 'service'),
+      provider.queryCosts(previousStart, previousEnd, 'service'),
     ]);
 
     const previousMap = new Map(previous.rows.map((r) => [r.name, r.cost]));

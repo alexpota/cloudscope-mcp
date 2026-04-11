@@ -51,7 +51,7 @@ describe('handleGetCostSummary', () => {
       { azure: mockAzureClient as any },
     );
 
-    expect(mockAzureClient.queryCosts).toHaveBeenCalledWith('2026-03-01', '2026-03-31', 'ResourceGroup');
+    expect(mockAzureClient.queryCosts).toHaveBeenCalledWith('2026-03-01', '2026-03-31', 'resource_group');
   });
 
   it('handles Azure API errors gracefully', async () => {
@@ -108,7 +108,7 @@ describe('handleGetCostSummary', () => {
         { azure: mockAzureClient as any },
       );
 
-      expect(mockAzureClient.queryCosts).toHaveBeenCalledWith('2026-04-01', '2026-04-15', 'ServiceName');
+      expect(mockAzureClient.queryCosts).toHaveBeenCalledWith('2026-04-01', '2026-04-15', 'service');
       expect(result.content[0].text).toContain('2026-04-01 to 2026-04-15');
     });
   });

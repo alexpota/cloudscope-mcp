@@ -1,7 +1,7 @@
 import { formatCostTable } from '../utils/formatter.js';
 import { validateDateRange, todayYMD, firstOfCurrentMonth } from '../utils/dates.js';
-import { GROUP_BY_MAP } from '../constants.js';
 import { toolResult, toolError, withProvider, type ToolResult, type Providers } from './types.js';
+import type { GroupByKey } from '../providers/types.js';
 
 interface CostSummaryInput {
   provider: 'azure';
@@ -23,8 +23,8 @@ export async function handleGetCostSummary(
   if (dateError) return toolError(new Error(dateError));
 
   return withProvider(providers, input.provider, async (provider) => {
-    const grouping = GROUP_BY_MAP[input.group_by] || 'ServiceName';
-    const result = await provider.queryCosts(startDate, endDate, grouping);
+    const groupBy: GroupByKey = input.group_by === 'tag' ? 'service' : input.group_by;
+    const result = await provider.queryCosts(startDate, endDate, groupBy);
 
     const periodDays = Math.ceil(
       (new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24),

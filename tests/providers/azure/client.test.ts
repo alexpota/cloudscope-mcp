@@ -135,7 +135,7 @@ describe('AzureCostClient', () => {
         rows: [[4231.5, 'Virtual Machines', 'USD']],
       });
 
-      await client.queryCosts('2026-03-01', '2026-03-31', 'ServiceName');
+      await client.queryCosts('2026-03-01', '2026-03-31', 'service');
 
       expect(mockUsage).toHaveBeenCalledWith(
         '/subscriptions/sub-abc',
@@ -171,7 +171,7 @@ describe('AzureCostClient', () => {
       const result = await client.queryCosts(
         '2026-03-01',
         '2026-03-31',
-        'ServiceName',
+        'service',
       );
 
       expect(result.rows).toHaveLength(3);
@@ -206,7 +206,7 @@ describe('AzureCostClient', () => {
       const result = await client.queryCosts(
         '2026-03-01',
         '2026-03-31',
-        'ServiceName',
+        'service',
       );
 
       expect(result.rows).toHaveLength(0);
@@ -217,7 +217,7 @@ describe('AzureCostClient', () => {
       mockUsage.mockResolvedValueOnce({ columns: [], rows: [] });
 
       await expect(
-        client.queryCosts('2026-03-01', '2026-03-31', 'ServiceName'),
+        client.queryCosts('2026-03-01', '2026-03-31', 'service'),
       ).rejects.toThrow('Azure response missing column');
     });
 
@@ -234,7 +234,7 @@ describe('AzureCostClient', () => {
       const result = await client.queryCosts(
         '2026-03-01',
         '2026-03-31',
-        'ResourceGroup',
+        'resource_group',
       );
 
       expect(result.rows[0].name).toBe('rg-production');
@@ -587,7 +587,7 @@ describe('AzureCostClient', () => {
       });
 
       // queryCosts uses the default scope (/subscriptions/sub-abc)
-      await client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName');
+      await client.queryCosts('2026-04-01', '2026-04-09', 'service');
       // queryCostsForScope with the same scope should be a cache hit
       await client.queryCostsForScope(
         '/subscriptions/sub-abc',
@@ -623,9 +623,9 @@ describe('AzureCostClient', () => {
     it('queryCosts hits the Azure SDK only once for identical sequential calls', async () => {
       mockUsage.mockResolvedValue(sampleCostResponse);
 
-      await client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName');
-      await client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName');
-      await client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName');
+      await client.queryCosts('2026-04-01', '2026-04-09', 'service');
+      await client.queryCosts('2026-04-01', '2026-04-09', 'service');
+      await client.queryCosts('2026-04-01', '2026-04-09', 'service');
 
       expect(mockUsage).toHaveBeenCalledTimes(1);
     });
@@ -634,9 +634,9 @@ describe('AzureCostClient', () => {
       mockUsage.mockResolvedValue(sampleCostResponse);
 
       await Promise.all([
-        client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName'),
-        client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName'),
-        client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName'),
+        client.queryCosts('2026-04-01', '2026-04-09', 'service'),
+        client.queryCosts('2026-04-01', '2026-04-09', 'service'),
+        client.queryCosts('2026-04-01', '2026-04-09', 'service'),
       ]);
 
       expect(mockUsage).toHaveBeenCalledTimes(1);
@@ -654,9 +654,9 @@ describe('AzureCostClient', () => {
         rows: [],
       });
 
-      await client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName');
-      await client.queryCosts('2026-04-01', '2026-04-09', 'ResourceGroup');
-      await client.queryCosts('2026-03-01', '2026-03-31', 'ServiceName');
+      await client.queryCosts('2026-04-01', '2026-04-09', 'service');
+      await client.queryCosts('2026-04-01', '2026-04-09', 'resource_group');
+      await client.queryCosts('2026-03-01', '2026-03-31', 'service');
 
       expect(mockUsage).toHaveBeenCalledTimes(3);
     });
@@ -667,10 +667,10 @@ describe('AzureCostClient', () => {
         .mockResolvedValueOnce(sampleCostResponse);
 
       await expect(
-        client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName'),
+        client.queryCosts('2026-04-01', '2026-04-09', 'service'),
       ).rejects.toThrow('transient Azure failure');
 
-      const result = await client.queryCosts('2026-04-01', '2026-04-09', 'ServiceName');
+      const result = await client.queryCosts('2026-04-01', '2026-04-09', 'service');
 
       expect(mockUsage).toHaveBeenCalledTimes(2);
       expect(result.rows).toHaveLength(1);

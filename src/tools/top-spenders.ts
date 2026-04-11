@@ -18,7 +18,7 @@ export async function handleTopSpendingResources(
     const endDate = toDateString(now);
     const startDate = toDateString(new Date(now.getTime() - input.days * MS_PER_DAY));
 
-    const result = await provider.queryCosts(startDate, endDate, 'ResourceId');
+    const result = await provider.queryCosts(startDate, endDate, 'resource_id');
     const sorted = [...result.rows].sort((a, b) => b.cost - a.cost).slice(0, input.limit);
 
     if (sorted.length === 0) {
