@@ -29,6 +29,7 @@ import {
   buildCostQuery,
   COST_BY_TAG_QUERY,
   DAILY_COST_QUERY,
+  NET_COST,
   VALIDATE_QUERY,
   DETAILED_EXPORT_PROBE,
   interpolateTable,
@@ -47,6 +48,7 @@ export class GcpCostClient implements CloudCostProvider {
   private readonly forecastCache: Cache<ForecastResult>;
   private readonly recommendationsCache: Cache<Recommendation[]>;
   private readonly idleCache: Cache<IdleResource[]>;
+  private readonly budgetsCache: Cache<BudgetInfo[]>;
 
   /** Set during validate() — indicates whether resource.name column exists. */
   private hasDetailedExport = false;
@@ -65,6 +67,7 @@ export class GcpCostClient implements CloudCostProvider {
       MAX_CACHE_ENTRIES,
     );
     this.idleCache = new Cache<IdleResource[]>(DEFAULT_CACHE_TTL_SECONDS, MAX_CACHE_ENTRIES);
+    this.budgetsCache = new Cache<BudgetInfo[]>(DEFAULT_CACHE_TTL_SECONDS, MAX_CACHE_ENTRIES);
   }
 
   /** Lazily initializes and returns the BigQuery client. */
@@ -310,7 +313,60 @@ export class GcpCostClient implements CloudCostProvider {
   }
 
   async listBudgets(): Promise<BudgetInfo[]> {
-    throw new Error('GCP listBudgets not yet implemented');
+    if (!this.billingAccountId) {
+      return [];
+    }
+
+    const budgetsKey = JSON.stringify({ billingAccountId: this.billingAccountId });
+
+    return this.budgetsCache.getOrFetch(budgetsKey, async () => {
+      const { BudgetServiceClient } = await import('@google-cloud/billing-budgets');
+      const client = new BudgetServiceClient();
+      const parent = `billingAccounts/${this.billingAccountId}`;
+
+      const [budgets] = await this.callGcp(() => client.listBudgets({ parent }));
+
+      const results: BudgetInfo[] = [];
+
+      for (const budget of budgets) {
+        const amount =
+          budget.amount?.specifiedAmount?.units != null
+            ? Number(budget.amount.specifiedAmount.units)
+            : 0;
+        const currency = budget.amount?.specifiedAmount?.currencyCode ?? DEFAULT_CURRENCY;
+
+        // Current spend: query BigQuery for current month
+        let currentSpend = 0;
+        try {
+          const now = new Date();
+          const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+          const today = toDateString(now);
+          const spendRows = await this.runQuery(
+            `SELECT ${NET_COST} AS cost FROM \`{BILLING_TABLE}\` WHERE usage_start_time >= TIMESTAMP(@startDate) AND usage_start_time < TIMESTAMP(@endDate)`,
+            { startDate: monthStart, endDate: today },
+          );
+          currentSpend = Number(spendRows[0]?.['cost'] ?? 0);
+        } catch {
+          // BigQuery unavailable — leave as 0
+        }
+
+        // Forecast: simple projection from current spend
+        const now = new Date();
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const daysSoFar = now.getDate();
+        const forecastSpend = daysSoFar > 0 ? (currentSpend / daysSoFar) * daysInMonth : 0;
+
+        results.push({
+          name: budget.displayName ?? 'Unnamed',
+          amount,
+          currentSpend,
+          forecastSpend,
+          currency: String(currency),
+        });
+      }
+
+      return results;
+    });
   }
 
   async findIdleResources(): Promise<IdleResource[]> {

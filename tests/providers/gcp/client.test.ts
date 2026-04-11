@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockQuery = vi.fn();
 const mockListRecommendations = vi.fn();
 const mockListZones = vi.fn();
+const mockListBudgets = vi.fn();
 
 vi.mock('@google-cloud/bigquery', () => ({
   BigQuery: vi.fn().mockImplementation(() => ({
@@ -22,12 +23,19 @@ vi.mock('@google-cloud/compute', () => ({
   })),
 }));
 
+vi.mock('@google-cloud/billing-budgets', () => ({
+  BudgetServiceClient: vi.fn().mockImplementation(() => ({
+    listBudgets: mockListBudgets,
+  })),
+}));
+
 import { GcpCostClient } from '../../../src/providers/gcp/client.js';
 
-function createClient() {
+function createClient(billingAccountId?: string) {
   return new GcpCostClient({
     projectId: 'test-project',
     billingTable: 'test-project.billing.gcp_billing_export_v1_ABCDEF',
+    billingAccountId,
   });
 }
 
@@ -359,12 +367,60 @@ describe('GcpCostClient', () => {
     });
   });
 
-  describe('not yet implemented methods', () => {
-    it('listBudgets throws', async () => {
+  describe('listBudgets', () => {
+    it('returns empty array when billingAccountId is not set', async () => {
       const client = createClient();
-      await expect(client.listBudgets()).rejects.toThrow('not yet implemented');
+      const budgets = await client.listBudgets();
+
+      expect(budgets).toEqual([]);
+      expect(mockListBudgets).not.toHaveBeenCalled();
     });
 
+    it('returns budgets with computed spend from BigQuery', async () => {
+      mockListBudgets.mockResolvedValueOnce([
+        [
+          {
+            displayName: 'Monthly Budget',
+            amount: {
+              specifiedAmount: { units: '5000', currencyCode: 'USD' },
+            },
+          },
+        ],
+      ]);
+      // BigQuery spend query
+      mockQuery.mockResolvedValueOnce([[{ cost: 3200 }]]);
+
+      const client = createClient('012345-6789AB-CDEF01');
+      const budgets = await client.listBudgets();
+
+      expect(budgets).toHaveLength(1);
+      expect(budgets[0]?.name).toBe('Monthly Budget');
+      expect(budgets[0]?.amount).toBe(5000);
+      expect(budgets[0]?.currentSpend).toBe(3200);
+      expect(budgets[0]?.forecastSpend).toBeGreaterThan(0);
+    });
+
+    it('handles BigQuery failure gracefully with zero spend', async () => {
+      mockListBudgets.mockResolvedValueOnce([
+        [
+          {
+            displayName: 'Budget',
+            amount: { specifiedAmount: { units: '1000', currencyCode: 'EUR' } },
+          },
+        ],
+      ]);
+      mockQuery.mockRejectedValueOnce(new Error('BQ error'));
+
+      const client = createClient('012345-6789AB-CDEF01');
+      const budgets = await client.listBudgets();
+
+      expect(budgets[0]?.currentSpend).toBe(0);
+      expect(budgets[0]?.forecastSpend).toBe(0);
+      expect(budgets[0]?.currency).toBe('EUR');
+    });
+  });
+
+  describe('not yet implemented methods', () => {
     it('findUntaggedResources throws', async () => {
       const client = createClient();
       await expect(client.findUntaggedResources()).rejects.toThrow('not yet implemented');

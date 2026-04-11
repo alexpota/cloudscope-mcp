@@ -13,7 +13,7 @@ export const GCP_GROUPING_MAP: Record<GroupByKey, string> = {
 };
 
 /** Net cost expression: base cost + all credits (discounts, CUDs, etc.). */
-const NET_COST = `SUM(cost) + SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) AS c), 0))`;
+export const NET_COST = `SUM(cost) + SUM(IFNULL((SELECT SUM(c.amount) FROM UNNEST(credits) AS c), 0))`;
 
 /**
  * Cost grouped by a dimension.
