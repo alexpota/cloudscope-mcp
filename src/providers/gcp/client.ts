@@ -54,7 +54,15 @@ export class GcpCostClient implements CloudCostProvider {
   private hasDetailedExport = false;
   private bqClient: BigQueryClient | undefined;
 
+  private static readonly BQ_TABLE_PATTERN = /^[\w-]+\.[\w-]+\.[\w-]+$/;
+
   constructor(config: GcpConfig) {
+    if (!GcpCostClient.BQ_TABLE_PATTERN.test(config.billingTable)) {
+      throw new Error(
+        `Invalid GCP_BILLING_TABLE format: "${config.billingTable}". Expected: project.dataset.table_name`,
+      );
+    }
+
     this.projectId = config.projectId;
     this.billingTable = config.billingTable;
     this.billingAccountId = config.billingAccountId;

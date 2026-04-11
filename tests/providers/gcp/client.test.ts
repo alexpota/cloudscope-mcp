@@ -52,6 +52,34 @@ describe('GcpCostClient', () => {
     vi.clearAllMocks();
   });
 
+  describe('constructor validation', () => {
+    it('rejects billing table with SQL injection attempt', () => {
+      expect(
+        () =>
+          new GcpCostClient({
+            projectId: 'p',
+            billingTable: 'p.d.t; DROP TABLE users--',
+          }),
+      ).toThrow('Invalid GCP_BILLING_TABLE format');
+    });
+
+    it('rejects billing table missing dataset segment', () => {
+      expect(
+        () => new GcpCostClient({ projectId: 'p', billingTable: 'just-a-table' }),
+      ).toThrow('Invalid GCP_BILLING_TABLE format');
+    });
+
+    it('accepts valid project.dataset.table format', () => {
+      expect(
+        () =>
+          new GcpCostClient({
+            projectId: 'p',
+            billingTable: 'my-project.billing_dataset.gcp_billing_export_v1_ABCDEF',
+          }),
+      ).not.toThrow();
+    });
+  });
+
   describe('queryCosts', () => {
     it('returns parsed cost rows from BigQuery response', async () => {
       mockQuery.mockResolvedValueOnce([
