@@ -29,7 +29,7 @@ import {
   buildCostQuery,
   COST_BY_TAG_QUERY,
   DAILY_COST_QUERY,
-  NET_COST,
+  CURRENT_MONTH_SPEND_QUERY,
   VALIDATE_QUERY,
   DETAILED_EXPORT_PROBE,
   interpolateTable,
@@ -341,10 +341,10 @@ export class GcpCostClient implements CloudCostProvider {
           const now = new Date();
           const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
           const today = toDateString(now);
-          const spendRows = await this.runQuery(
-            `SELECT ${NET_COST} AS cost FROM \`{BILLING_TABLE}\` WHERE usage_start_time >= TIMESTAMP(@startDate) AND usage_start_time < TIMESTAMP(@endDate)`,
-            { startDate: monthStart, endDate: today },
-          );
+          const spendRows = await this.runQuery(CURRENT_MONTH_SPEND_QUERY, {
+            startDate: monthStart,
+            endDate: today,
+          });
           currentSpend = Number(spendRows[0]?.['cost'] ?? 0);
         } catch {
           // BigQuery unavailable — leave as 0

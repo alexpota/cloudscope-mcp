@@ -8,10 +8,12 @@ vi.mock('@google-cloud/resource-manager', () => ({
   })),
 }));
 
+const mockValidate = vi.fn().mockResolvedValue({ connected: true, detail: 'project: test, export: standard' });
+
 // Mock client.ts so initializeGcpProvider doesn't hit real BigQuery
 vi.mock('../../../src/providers/gcp/client.js', () => ({
   GcpCostClient: vi.fn().mockImplementation(() => ({
-    validate: vi.fn().mockResolvedValue({ connected: true, detail: 'ok' }),
+    validate: mockValidate,
   })),
 }));
 
@@ -79,6 +81,17 @@ describe('GCP discovery', () => {
       expect(result).not.toBeNull();
       expect(result?.projectId).toBe('my-project');
       expect(result?.projects).toHaveLength(1);
+    });
+
+    it('returns null when validate fails', async () => {
+      mockValidate.mockResolvedValueOnce({ connected: false, detail: 'Table not found' });
+
+      const result = await initializeGcpProvider({
+        projectId: 'my-project',
+        billingTable: 'bad-table',
+      });
+
+      expect(result).toBeNull();
     });
 
     it('falls back to config projectId when project listing fails', async () => {

@@ -48,8 +48,15 @@ export async function initializeGcpProvider(
 
   try {
     const client = new GcpCostClient(config);
-    let projects: GcpProjectInfo[] = [];
 
+    // Validate connectivity and detect table type (sets hasDetailedExport)
+    const validation = await client.validate();
+    if (!validation.connected) {
+      console.error(`cloudscope-mcp | GCP: failed (${validation.detail})`);
+      return null;
+    }
+
+    let projects: GcpProjectInfo[] = [];
     try {
       projects = await listGcpProjects();
     } catch {
@@ -58,7 +65,7 @@ export async function initializeGcpProvider(
     }
 
     console.error(
-      `cloudscope-mcp | GCP: configured (project: ${config.projectId})`,
+      `cloudscope-mcp | GCP: configured (${validation.detail})`,
     );
 
     return { client, projectId: config.projectId, projects };

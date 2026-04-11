@@ -69,6 +69,17 @@ GROUP BY date, currency
 ORDER BY date`.trim();
 
 /**
+ * Total spend for a date range (used by listBudgets to compute current month spend).
+ * Parameters: @startDate (STRING), @endDate (STRING)
+ */
+export const CURRENT_MONTH_SPEND_QUERY = `
+SELECT
+  ${NET_COST} AS cost
+FROM \`{BILLING_TABLE}\`
+WHERE usage_start_time >= TIMESTAMP(@startDate)
+  AND usage_start_time < TIMESTAMP(@endDate)`.trim();
+
+/**
  * Lightweight validation query — returns 1 row if the table exists and is readable.
  */
 export const VALIDATE_QUERY = `SELECT 1 AS ok FROM \`{BILLING_TABLE}\` LIMIT 1`;
