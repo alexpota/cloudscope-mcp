@@ -95,3 +95,10 @@ export const IDLE_RESOURCE_REASONS: Record<string, string> = {
 };
 
 export const DEFAULT_IDLE_RESOURCE_COST_DAYS = 30;
+
+// GCP rate limiting
+export const GCP_BIGQUERY_CONCURRENCY = 5;
+export const GCP_RECOMMENDER_CONCURRENCY = 10;
+export const GCP_RETRY_MAX_ATTEMPTS = 3;
+export const GCP_RETRY_BASE_DELAY_MS = 1000;
+export const GCP_RETRY_MAX_DELAY_MS = 8000;
