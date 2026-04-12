@@ -298,7 +298,7 @@ describe('GcpCostClient', () => {
       const result = await client.validate();
 
       expect(result.connected).toBe(false);
-      expect(result.detail).toContain('Table not found');
+      expect(result.detail).toContain('Verify GCP_BILLING_TABLE');
     });
 
     it('detects standard export when detailed probe fails', async () => {

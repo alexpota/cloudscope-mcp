@@ -149,7 +149,7 @@ describe('Edge cases', () => {
       ]);
 
       expect(result1.isError).toBe(true);
-      expect(result1.content[0].text).toContain('First call fails');
+      expect(result1.content[0].text).toContain('azure request failed');
       expect(result2.isError).toBeUndefined();
       expect(result2.content[0].text).toContain('OK');
     });

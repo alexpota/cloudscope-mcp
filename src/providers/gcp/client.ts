@@ -435,9 +435,11 @@ export class GcpCostClient implements CloudCostProvider {
         connected: true,
         detail: `project: ${this.projectId}, export: ${exportType}`,
       };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return { connected: false, detail: message };
+    } catch {
+      return {
+        connected: false,
+        detail: 'Failed to query BigQuery billing table. Verify GCP_BILLING_TABLE format (project.dataset.table) and that credentials have BigQuery Data Viewer + Job User roles.',
+      };
     }
   }
 }

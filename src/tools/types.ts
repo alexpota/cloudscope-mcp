@@ -30,7 +30,9 @@ export async function withProvider(
   }
   try {
     return await handler(provider);
-  } catch (error) {
-    return toolError(error);
+  } catch {
+    return toolError(
+      new Error(`${providerName} request failed. Check provider credentials and try again.`),
+    );
   }
 }

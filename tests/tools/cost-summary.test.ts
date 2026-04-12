@@ -62,7 +62,7 @@ describe('handleGetCostSummary', () => {
       { azure: mockAzureClient as any, gcp: null },
     );
 
-    expect(result.content[0].text).toContain('Network timeout');
+    expect(result.content[0].text).toContain('azure request failed');
     expect(result.isError).toBe(true);
   });
 

@@ -72,7 +72,7 @@ describe('handleCrossSubscriptionCosts', () => {
     expect(text).toContain('Production');
     expect(text).toContain('Staging');
     expect(text).toContain('Development');
-    expect(text).toContain('permission denied');
+    expect(text).toContain('access denied or query failed');
     expect(result.isError).toBeUndefined();
   });
 
@@ -88,7 +88,7 @@ describe('handleCrossSubscriptionCosts', () => {
     );
 
     expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('throttled');
+    expect(result.content[0].text).toContain('Cost Management Reader');
   });
 
   it('defaults to all enabled subscriptions when subscription_ids is omitted', async () => {

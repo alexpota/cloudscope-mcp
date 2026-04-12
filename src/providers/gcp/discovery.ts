@@ -69,9 +69,8 @@ export async function initializeGcpProvider(
     );
 
     return { client, projectId: config.projectId, projects };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error(`cloudscope-mcp | GCP: initialization failed (${message})`);
+  } catch {
+    console.error('cloudscope-mcp | GCP: initialization failed');
     return null;
   }
 }

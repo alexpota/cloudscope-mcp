@@ -401,9 +401,11 @@ export class AzureCostClient implements CloudCostProvider {
       const today = new Date().toISOString().split('T')[0] ?? '';
       await this.queryCosts(today, today, 'service');
       return { connected: true, detail: `subscription: ${this.subscriptionId}` };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return { connected: false, detail: message };
+    } catch {
+      return {
+        connected: false,
+        detail: 'Failed to query Azure Cost Management. Verify az login is active and credentials have Cost Management Reader role.',
+      };
     }
   }
 }
