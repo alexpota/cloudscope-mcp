@@ -20,7 +20,7 @@ export async function handleCheckBudgets(
 
     if (budgets.length === 0) {
       return toolResult(
-        'No budgets found.\n\nCreate budgets in the Azure portal under Cost Management > Budgets.',
+        'No budgets found.\n\nCreate budgets in your cloud provider console (Azure: Cost Management > Budgets, GCP: Billing > Budgets & alerts).',
       );
     }
 

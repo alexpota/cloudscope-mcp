@@ -39,7 +39,7 @@ export async function handleGetCostSummary(
 
     return toolResult(
       formatCostTable({
-        title: `Azure Cost Summary (${startDate} to ${endDate})`,
+        title: `Cost Summary (${startDate} to ${endDate})`,
         groupLabel,
         rows: result.rows,
         currency: result.currency,

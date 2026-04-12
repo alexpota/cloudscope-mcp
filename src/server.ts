@@ -73,7 +73,7 @@ export async function createServer(): Promise<McpServer> {
     {
       title: 'Cloud Cost Summary',
       description:
-        'Returns a cost breakdown for a date range grouped by service, resource group, tag, or region. Defaults to current month if dates are omitted. Output includes a sorted table with each group name, cost in USD, and percentage of total. Includes a total row, daily average, and collapses groups beyond the top 10 into an "Other" row. Returns an error if the date range is invalid. Use this when the user asks "how much am I spending", "what costs the most", "show me my Azure bill", or wants a spending overview.',
+        'Returns a cost breakdown for a date range grouped by service, resource group, tag, or region. Defaults to current month if dates are omitted. Output includes a sorted table with each group name, cost in USD, and percentage of total. Includes a total row, daily average, and collapses groups beyond the top 10 into an "Other" row. Returns an error if the date range is invalid. Use this when the user asks "how much am I spending", "what costs the most", "show me my cloud bill", or wants a spending overview.',
       inputSchema: {
         provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
         start_date: z
@@ -116,7 +116,7 @@ export async function createServer(): Promise<McpServer> {
     {
       title: 'Cost Optimization Recommendations',
       description:
-        'Fetches cost-saving recommendations from Azure Advisor filtered by category. Returns a list of recommendations each containing: title, category, impact level (high/medium/low), estimated annual savings in USD, affected resource ID, and a short description of the suggested action. Returns an empty list if no recommendations exist for the selected category. Use this when the user wants to reduce costs, find waste, or optimize resource usage.',
+        'Fetches cost-saving recommendations (Azure Advisor or GCP Recommender) filtered by category. Returns a list of recommendations each containing: title, category, impact level (high/medium/low), estimated annual savings in USD, affected resource ID, and a short description of the suggested action. Returns an empty list if no recommendations exist for the selected category. Use this when the user wants to reduce costs, find waste, or optimize resource usage.',
       inputSchema: {
         provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
         category: z
@@ -150,7 +150,7 @@ export async function createServer(): Promise<McpServer> {
     {
       title: 'Budget Status',
       description:
-        'Check Azure budget status: current spend vs limit, percentage used, forecast, and overage risk',
+        'Check budget status: current spend vs limit, percentage used, forecast, and overage risk. For GCP, requires GCP_BILLING_ACCOUNT_ID to be set.',
       inputSchema: {
         provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
       },
@@ -183,7 +183,7 @@ export async function createServer(): Promise<McpServer> {
     'top_spending_resources',
     {
       title: 'Top Spending Resources',
-      description: 'Find the N most expensive individual Azure resources over a time period',
+      description: 'Find the N most expensive individual resources over a time period. On GCP, requires the detailed billing export for resource-level data.',
       inputSchema: {
         provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
         days: z
@@ -228,7 +228,7 @@ export async function createServer(): Promise<McpServer> {
     {
       title: 'Find Idle Resources',
       description:
-        'Finds Azure resources that are provisioned but not actively used — unattached managed disks, orphaned network interfaces, unused public IPs, and empty App Service plans. Returns each resource with its name, type, resource group, reason it is idle, and estimated monthly cost in USD based on the last 30 days. Returns an empty list if no idle resources are found. Use this when the user asks about waste, idle or unused resources, cleanup opportunities, or wants to find resources to delete to reduce costs.',
+        'Finds cloud resources that are provisioned but not actively used — unattached disks, orphaned network interfaces, unused IPs, idle VMs, and empty compute plans. Returns each resource with its name, type, resource group/project, reason it is idle, and estimated monthly cost in USD. Returns an empty list if no idle resources are found. Use this when the user asks about waste, idle or unused resources, cleanup opportunities, or wants to find resources to delete to reduce costs.',
       inputSchema: {
         provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
       },
@@ -241,7 +241,7 @@ export async function createServer(): Promise<McpServer> {
     {
       title: 'Find Untagged Resources',
       description:
-        'Finds resources in the subscription that have no tags applied. Returns each resource with its name, type, resource group, and location. Untagged resources cannot be attributed to teams or projects, making cost allocation and chargeback impossible. Returns an empty list if all resources are tagged. Use this when the user asks about tagging compliance, governance, cost attribution gaps, or wants to identify resources that need tags.',
+        'Finds resources that have no tags or labels applied. Returns each resource with its name, type, resource group/project, and location. Untagged resources cannot be attributed to teams or projects, making cost allocation and chargeback impossible. Returns an empty list if all resources are tagged. Use this when the user asks about tagging compliance, governance, cost attribution gaps, or wants to identify resources that need tags.',
       inputSchema: {
         provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
       },
