@@ -168,6 +168,11 @@ describe.skipIf(!RUN_E2E)('Azure E2E', () => {
     expect(text).toContain('not configured');
   });
 
+  test('get_cross_project_costs with no GCP returns error', async () => {
+    const text = await callToolExpectError(client, 'get_cross_project_costs', { provider: 'gcp' });
+    expect(text).toContain('No GCP projects');
+  });
+
   // --- Prompts ---
 
   test('prompts/list returns 5 prompts', async () => {
@@ -186,5 +191,22 @@ describe.skipIf(!RUN_E2E)('Azure E2E', () => {
     expect(result.messages.length).toBeGreaterThan(0);
     const text = result.messages[0]?.content as { type: string; text: string };
     expect(text.text.length).toBeGreaterThan(0);
+  });
+
+  test('prompts/get chargeback-report with tag_key', async () => {
+    const result = await client.getPrompt({ name: 'chargeback-report', arguments: { tag_key: 'environment' } });
+    expect(result.messages.length).toBeGreaterThan(0);
+    const text = result.messages[0]?.content as { type: string; text: string };
+    expect(text.text).toContain('environment');
+  });
+
+  test('prompts/get cost-spike-investigation with days', async () => {
+    const result = await client.getPrompt({ name: 'cost-spike-investigation', arguments: { days: '14' } });
+    expect(result.messages.length).toBeGreaterThan(0);
+  });
+
+  test('prompts/get executive-summary returns messages', async () => {
+    const result = await client.getPrompt({ name: 'executive-summary', arguments: {} });
+    expect(result.messages.length).toBeGreaterThan(0);
   });
 });
