@@ -38,9 +38,9 @@ CloudScope gives AI assistants read-only access to your Azure and GCP cost data.
 ### GCP
 
 - [gcloud CLI](https://cloud.google.com/sdk/docs/install) installed and logged in (`gcloud auth application-default login`)
-- [Billing export to BigQuery](https://cloud.google.com/billing/docs/how-to/export-data-bigquery) enabled (the detailed export is recommended for resource-level cost queries)
+- [Billing export to BigQuery](https://cloud.google.com/billing/docs/how-to/export-data-bigquery) enabled — this is a one-time manual setup step, not enabled by default (the detailed export is recommended for resource-level cost queries)
 - **BigQuery Data Viewer** + **BigQuery Job User** roles on the dataset project
-- Note: BigQuery queries have a small cost (~$6.25/TB scanned, typically <$0.01 per query)
+- Note: BigQuery on-demand queries cost $6.25 per TiB scanned ([pricing](https://cloud.google.com/bigquery/pricing)). The first 1 TiB/month is free. Billing export tables are small — typical CloudScope queries cost <$0.01 each.
 
 ## Configuration
 
@@ -208,7 +208,7 @@ CloudScope is read-only. It cannot create, modify, or delete any cloud resources
 
 **Does the Azure Cost Management API cost money?** No. It's free.
 
-**Do GCP BigQuery cost queries cost money?** Yes, but typically <$0.01 per query (~$6.25/TB scanned). Billing export tables are small.
+**Do GCP BigQuery cost queries cost money?** Yes, but typically <$0.01 per query ($6.25/TiB scanned, first 1 TiB/month free). See [BigQuery pricing](https://cloud.google.com/bigquery/pricing).
 
 **Can I use both Azure and GCP at the same time?** Yes. Configure both sets of env vars and CloudScope queries whichever provider you specify in each tool call.
 
