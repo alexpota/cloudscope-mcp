@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 
 const PROMPT_TEXT = `Generate a brief executive cost summary for leadership. Keep it under 10 sentences and avoid technical jargon. Cover:
@@ -16,6 +17,12 @@ export const registerExecutiveSummaryPrompt = (server: McpServer): void => {
     {
       title: 'Executive Cost Summary',
       description: 'Generate a brief executive cost summary for leadership or stakeholders',
+      argsSchema: {
+        provider: z
+          .enum(['azure', 'gcp'])
+          .optional()
+          .describe('Cloud provider to summarize (default: azure)'),
+      },
     },
     () => ({
       messages: [{ role: 'user', content: { type: 'text', text: PROMPT_TEXT } }],

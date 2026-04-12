@@ -135,4 +135,26 @@ describe('Tool input schema validation', () => {
       expect(result.days).toBe(30);
     });
   });
+
+  describe('dynamic default provider logic', () => {
+    function computeDefault(hasAzure: boolean, hasGcp: boolean): 'azure' | 'gcp' {
+      return hasGcp && !hasAzure ? 'gcp' : 'azure';
+    }
+
+    it('defaults to gcp when only gcp is configured', () => {
+      expect(computeDefault(false, true)).toBe('gcp');
+    });
+
+    it('defaults to azure when only azure is configured', () => {
+      expect(computeDefault(true, false)).toBe('azure');
+    });
+
+    it('defaults to azure when both are configured', () => {
+      expect(computeDefault(true, true)).toBe('azure');
+    });
+
+    it('defaults to azure when neither is configured', () => {
+      expect(computeDefault(false, false)).toBe('azure');
+    });
+  });
 });

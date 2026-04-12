@@ -10,6 +10,7 @@ import { handleTopSpendingResources } from './top-spenders.js';
 import { handleGetCostByTag } from './tag-costs.js';
 import { handleFindIdleResources } from './idle-resources.js';
 import { handleFindUntaggedResources } from './untagged-resources.js';
+import { handleGetCurrentDate } from './current-date.js';
 import type { Providers } from './types.js';
 import {
   DEFAULT_ANOMALY_DAYS,
@@ -206,5 +207,18 @@ export function registerSharedTools(
       },
     },
     async (input) => handleFindUntaggedResources(input, providers),
+  );
+
+  server.registerTool(
+    'get_current_date',
+    {
+      title: 'Current Date',
+      description:
+        "Returns today's date and the start/end of current and previous months in YYYY-MM-DD format",
+      inputSchema: {},
+    },
+    () => {
+      return handleGetCurrentDate();
+    },
   );
 }

@@ -3,7 +3,6 @@ import { z } from 'zod';
 import type { GcpProjectInfo } from '../providers/gcp/discovery.js';
 import { handleListProjects } from './list-projects.js';
 import { handleCrossProjectCosts } from './cross-project-costs.js';
-import { handleGetCurrentDate } from './current-date.js';
 import { toolError, type Providers } from './types.js';
 
 export function registerGcpTools(
@@ -54,18 +53,5 @@ export function registerGcpTools(
       },
     },
     async (input) => handleCrossProjectCosts(input, providers, gcp.projects),
-  );
-
-  server.registerTool(
-    'get_current_date',
-    {
-      title: 'Current Date',
-      description:
-        "Returns today's date and the start/end of current and previous months in YYYY-MM-DD format",
-      inputSchema: {},
-    },
-    () => {
-      return handleGetCurrentDate();
-    },
   );
 }

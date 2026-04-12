@@ -137,6 +137,7 @@ describe('registerPrompts', () => {
       ['waste-audit'],
       ['cost-spike-investigation'],
       ['chargeback-report'],
+      ['executive-summary'],
     ])('%s declares a provider argument in argsSchema', (name) => {
       const config = configFor(name);
       expect(config.argsSchema).toHaveProperty('provider');
@@ -169,9 +170,9 @@ describe('registerPrompts', () => {
       expect(result.messages[0]?.content.text).toContain('GCP project');
     });
 
-    it('executive-summary has no provider argument (already generic)', () => {
+    it('executive-summary declares provider argument', () => {
       const config = configFor('executive-summary');
-      expect(config.argsSchema).toBeUndefined();
+      expect(config.argsSchema).toHaveProperty('provider');
     });
   });
 });

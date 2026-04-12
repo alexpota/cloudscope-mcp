@@ -164,7 +164,7 @@ Guided workflows that produce structured reports. All prompts accept an optional
 | `monthly-cost-review`      | Complete monthly review: spending, last-month comparison, anomalies, top resources, budgets, forecast, savings opportunities            | `provider` (optional)                        |
 | `waste-audit`              | Find wasted spend: top resources, optimization recommendations, at-risk budgets, total potential savings                                | `provider` (optional)                        |
 | `cost-spike-investigation` | Root-cause analysis for a cost increase: which services, which resources, trend vs one-time, recommended actions                        | `days` (optional), `provider` (optional)     |
-| `executive-summary`        | Brief non-technical cost summary for leadership: spend, trend, budget status, top drivers, forecast, key recommendation                 | _(none)_                                     |
+| `executive-summary`        | Brief non-technical cost summary for leadership: spend, trend, budget status, top drivers, forecast, key recommendation                 | `provider` (optional)                        |
 | `chargeback-report`        | Cost allocation by tag/label key for chargeback: spending per value, untagged resources, tagged vs untagged split, month-over-month     | `tag_key` (required), `provider` (optional)  |
 
 ## Example Questions
