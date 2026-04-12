@@ -25,9 +25,9 @@ export const AZURE_THROTTLE_ERROR_CODES: readonly string[] = ['TooManyRequests',
 // which the Azure SDK's default retry policy does not handle. We compensate
 // with our own concurrency limit + bounded retry loop (see utils/rate-limit).
 export const AZURE_COST_MANAGEMENT_CONCURRENCY = 2;
-export const AZURE_RETRY_MAX_ATTEMPTS = 3;
+export const AZURE_RETRY_MAX_ATTEMPTS = 5;
 export const AZURE_RETRY_BASE_DELAY_MS = 1000;
-export const AZURE_RETRY_MAX_DELAY_MS = 4000;
+export const AZURE_RETRY_MAX_DELAY_MS = 16000;
 
 // Maps user-facing category enum → Azure resource type prefix in rec.impactedField.
 // "networking" ≠ "microsoft.network" without this mapping.
