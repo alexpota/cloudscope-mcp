@@ -14,29 +14,39 @@
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `claude mcp add cloudscope -- npx -y cloudscope-mcp` | [Install](https://cursor.com/en/install-mcp?name=cloudscope&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsImNsb3Vkc2NvcGUtbWNwIl19) | [Install](https://insiders.vscode.dev/redirect/mcp/install?name=cloudscope&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsImNsb3Vkc2NvcGUtbWNwIl19) |
 
-> Subscription is auto-detected from your `az login` session. Set `AZURE_SUBSCRIPTION_ID` to override.
+> Azure is auto-detected from your `az login` session. GCP requires BigQuery billing export setup (see below).
 
 ## What It Does
 
-CloudScope gives AI assistants read-only access to your Azure cost data. Ask about spending, find anomalies, get optimization recommendations, and forecast next month's bill — all through natural language. Works across multiple subscriptions, supports tag-based cost allocation, and includes five guided-workflow prompts for common FinOps tasks.
+CloudScope gives AI assistants read-only access to your Azure and GCP cost data. Ask about spending, find anomalies, get optimization recommendations, and forecast next month's bill — all through natural language. Works across multiple subscriptions/projects, supports tag-based cost allocation, and includes five guided-workflow prompts for common FinOps tasks.
 
 ## Supported Providers
 
 | Provider | Status                                                                                                       |
 | -------- | ------------------------------------------------------------------------------------------------------------ |
 | Azure    | ✅ Supported                                                                                                 |
-| GCP      | Coming soon                                                                                                  |
+| GCP      | ✅ Supported                                                                                                 |
 | AWS      | Use [AWS's official server](https://github.com/awslabs/mcp/tree/main/src/billing-cost-management-mcp-server) |
 
 ## Prerequisites
 
+### Azure
+
 - [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/install-azure-cli) installed and logged in (`az login`)
-- Your subscription ID (optional — auto-detected from `az login` if not set)
 - **Cost Management Reader** role on the subscription
+
+### GCP
+
+- [gcloud CLI](https://cloud.google.com/sdk/docs/install) installed and logged in (`gcloud auth application-default login`)
+- [Billing export to BigQuery](https://cloud.google.com/billing/docs/how-to/export-data-bigquery) enabled (the detailed export is recommended for resource-level cost queries)
+- **BigQuery Data Viewer** + **BigQuery Job User** roles on the dataset project
+- Note: BigQuery queries have a small cost (~$6.25/TB scanned, typically <$0.01 per query)
 
 ## Configuration
 
-CloudScope auto-detects your subscription from `az login`. Just add the server to your MCP client:
+### Azure (zero-config)
+
+CloudScope auto-detects your subscription from `az login`. Just add the server:
 
 ```json
 {
@@ -65,8 +75,6 @@ To target a specific subscription, add an `env` block:
 }
 ```
 
-No service principal needed for local development. [`DefaultAzureCredential`](https://learn.microsoft.com/en-us/javascript/api/@azure/identity/defaultazurecredential) picks up your `az login` session automatically.
-
 <details>
 <summary>Advanced: Service Principal (CI/CD & automated environments)</summary>
 
@@ -80,17 +88,48 @@ Set these alongside `AZURE_SUBSCRIPTION_ID` in the `env` block above.
 
 </details>
 
+### GCP
+
+GCP requires a BigQuery billing export table. Find your table name in **GCP Console > Billing > Billing export > BigQuery export**.
+
+```json
+{
+  "mcpServers": {
+    "cloudscope": {
+      "command": "npx",
+      "args": ["-y", "cloudscope-mcp"],
+      "env": {
+        "GCP_BILLING_TABLE": "my-project.my_dataset.gcp_billing_export_resource_v1_XXXXXX"
+      }
+    }
+  }
+}
+```
+
+`GOOGLE_CLOUD_PROJECT` is auto-set by `gcloud`. Override with `GCP_PROJECT_ID` if your billing dataset lives in a different project.
+
+| Variable                         | Description                                               | Required |
+| -------------------------------- | --------------------------------------------------------- | -------- |
+| `GCP_BILLING_TABLE`              | Fully-qualified BigQuery table (`project.dataset.table`)  | Yes      |
+| `GOOGLE_CLOUD_PROJECT`           | GCP project ID (auto-set by `gcloud`)                     | Yes      |
+| `GCP_PROJECT_ID`                 | Override project ID if different from `GOOGLE_CLOUD_PROJECT` | No    |
+| `GCP_BILLING_ACCOUNT_ID`         | Billing account ID for budget monitoring                  | No       |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON key file                     | No       |
+
 ## Tools
+
+All tools accept a `provider` parameter (`azure` or `gcp`, default: `azure`).
 
 **Cost Analysis**
 
 | Tool                           | Description                                             | Key Parameters                               |
 | ------------------------------ | ------------------------------------------------------- | -------------------------------------------- |
 | `get_cost_summary`             | Spending breakdown by service, group, or region         | `start_date`, `end_date`, `group_by`         |
-| `get_cost_by_tag`              | Costs grouped by a tag key (team, environment, project) | `tag_key`, `start_date`, `end_date`          |
+| `get_cost_by_tag`              | Costs grouped by a tag/label key                        | `tag_key`, `start_date`, `end_date`          |
 | `compare_periods`              | Side-by-side cost comparison of two date ranges         | `period_a_start/end`, `period_b_start/end`   |
 | `top_spending_resources`       | Most expensive individual resources                     | `days`, `limit`                              |
-| `get_cross_subscription_costs` | Combined costs across multiple subscriptions            | `subscription_ids`, `start_date`, `end_date` |
+| `get_cross_subscription_costs` | Combined costs across Azure subscriptions               | `subscription_ids`, `start_date`, `end_date` |
+| `get_cross_project_costs`      | Combined costs across GCP projects                      | `project_ids`, `start_date`, `end_date`      |
 
 **Monitoring**
 
@@ -102,53 +141,56 @@ Set these alongside `AZURE_SUBSCRIPTION_ID` in the `env` block above.
 
 **Optimization**
 
-| Tool                      | Description                                                          | Key Parameters |
-| ------------------------- | -------------------------------------------------------------------- | -------------- |
-| `list_recommendations`    | Azure Advisor cost optimization suggestions                          | `category`     |
-| `find_idle_resources`     | Unattached disks, orphaned NICs, unused IPs, empty App Service plans | _(none)_       |
-| `find_untagged_resources` | Resources with no tags (cost attribution gaps)                       | _(none)_       |
+| Tool                      | Description                                             | Key Parameters |
+| ------------------------- | ------------------------------------------------------- | -------------- |
+| `list_recommendations`    | Cost optimization suggestions (Azure Advisor / GCP Recommender) | `category` |
+| `find_idle_resources`     | Provisioned but unused resources with cost estimates    | _(none)_       |
+| `find_untagged_resources` | Resources with no tags/labels (cost attribution gaps)   | _(none)_       |
 
 **Utility**
 
 | Tool                 | Description                                        | Key Parameters |
 | -------------------- | -------------------------------------------------- | -------------- |
 | `get_current_date`   | Today's date and current/previous month bounds     | _(none)_       |
-| `list_subscriptions` | All accessible subscriptions with active indicator | _(none)_       |
+| `list_subscriptions` | Azure subscriptions with active indicator          | _(none)_       |
+| `list_projects`      | GCP projects with active indicator                 | _(none)_       |
 
 ## Prompts
 
-Guided workflows that produce structured reports. In **Claude Code**, type `/cloudscope:` to see all prompts. In **Claude Desktop**, click the `+` button → **Connectors** → **cloudscope**. Other MCP clients surface prompts differently — check your client's docs.
+Guided workflows that produce structured reports. All prompts accept an optional `provider` argument (`azure` or `gcp`). In **Claude Code**, type `/cloudscope:` to see all prompts. In **Claude Desktop**, click the `+` button → **Connectors** → **cloudscope**.
 
-| Prompt                     | Description                                                                                                                             | Arguments                      |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `monthly-cost-review`      | Complete monthly review: spending, last-month comparison, anomalies, top resources, budgets, forecast, savings opportunities            | _(none)_                       |
-| `waste-audit`              | Find wasted spend: top expensive resources, Azure Advisor recommendations, at-risk budgets, total potential savings                     | _(none)_                       |
-| `cost-spike-investigation` | Root-cause analysis for a cost increase: which services, which resources, trend vs one-time, recommended actions                        | `days` (optional, default `7`) |
-| `executive-summary`        | Brief non-technical cost summary for leadership: spend, trend, budget status, top drivers, forecast, key recommendation                 | _(none)_                       |
-| `chargeback-report`        | Cost allocation by tag key for chargeback: spending per tag value, untagged resources, tagged vs untagged split, month-over-month trend | `tag_key` (required)           |
+| Prompt                     | Description                                                                                                                             | Arguments                                    |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `monthly-cost-review`      | Complete monthly review: spending, last-month comparison, anomalies, top resources, budgets, forecast, savings opportunities            | `provider` (optional)                        |
+| `waste-audit`              | Find wasted spend: top resources, optimization recommendations, at-risk budgets, total potential savings                                | `provider` (optional)                        |
+| `cost-spike-investigation` | Root-cause analysis for a cost increase: which services, which resources, trend vs one-time, recommended actions                        | `days` (optional), `provider` (optional)     |
+| `executive-summary`        | Brief non-technical cost summary for leadership: spend, trend, budget status, top drivers, forecast, key recommendation                 | _(none)_                                     |
+| `chargeback-report`        | Cost allocation by tag/label key for chargeback: spending per value, untagged resources, tagged vs untagged split, month-over-month     | `tag_key` (required), `provider` (optional)  |
 
 ## Example Questions
 
 - "How much did Azure cost last month?"
-- "Show spending by resource group for the last 7 days"
-- "Any cost anomalies this week?"
+- "Show GCP spending by service for the last 7 days"
+- "Any cost anomalies this week on GCP?"
 - "What will Azure cost next month?"
-- "Show me cost optimization recommendations"
-- "Which services had the biggest spend increase?"
+- "Show me cost optimization recommendations for GCP"
+- "Compare Azure and GCP costs across all projects and subscriptions"
 
 ## Security
 
-CloudScope is read-only. It cannot create, modify, or delete any Azure resources. All API calls use Cost Management Reader permissions with no write access.
+CloudScope is read-only. It cannot create, modify, or delete any cloud resources. Azure uses Cost Management Reader permissions. GCP uses BigQuery Data Viewer + Job User with no write access.
 
 ## FAQ
 
-**Does this modify my Azure resources?** No. Read-only access only.
+**Does this modify my cloud resources?** No. Read-only access only.
 
-**Do I need a service principal?** No. `az login` works for local use.
-
-**What about GCP?** Coming soon.
+**Do I need a service principal?** No. `az login` (Azure) or `gcloud auth application-default login` (GCP) works for local use.
 
 **Does the Azure Cost Management API cost money?** No. It's free.
+
+**Do GCP BigQuery cost queries cost money?** Yes, but typically <$0.01 per query (~$6.25/TB scanned). Billing export tables are small.
+
+**Can I use both Azure and GCP at the same time?** Yes. Configure both sets of env vars and CloudScope queries whichever provider you specify in each tool call.
 
 ## Development
 
