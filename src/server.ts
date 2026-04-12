@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getConfig } from './config.js';
 import { initializeAzureProvider } from './providers/azure/discovery.js';
 import type { SubscriptionInfo } from './providers/azure/discovery.js';
+import { initializeGcpProvider } from './providers/gcp/discovery.js';
 import { handleGetCostSummary } from './tools/cost-summary.js';
 import { handleDetectAnomalies } from './tools/anomalies.js';
 import { handleListRecommendations } from './tools/recommendations.js';
@@ -33,7 +34,11 @@ export async function createServer(): Promise<McpServer> {
   const config = getConfig();
 
   const azureResult = await initializeAzureProvider(config.azure);
-  const providers: Providers = { azure: azureResult?.client ?? null, gcp: null };
+  const gcpResult = await initializeGcpProvider(config.gcp);
+  const providers: Providers = {
+    azure: azureResult?.client ?? null,
+    gcp: gcpResult?.client ?? null,
+  };
   const azureSubscriptions: SubscriptionInfo[] = azureResult?.subscriptions ?? [];
   const activeSubscriptionId: string = azureResult?.subscriptionId ?? '';
 
@@ -45,14 +50,16 @@ export async function createServer(): Promise<McpServer> {
     { name: PACKAGE_NAME, version: PACKAGE_VERSION },
     {
       instructions:
-        'CloudScope provides read-only access to Azure cost data. ' +
+        'CloudScope provides read-only access to Azure and GCP cost data. ' +
+        'All tools accept a provider parameter (azure or gcp, default: azure). ' +
         'Call get_current_date before any date-dependent tool if the current date is unclear — LLMs frequently hallucinate dates. ' +
         'For investigating cost increases, combine detect_anomalies with top_spending_resources to identify both the service and the specific resource. ' +
-        'list_recommendations returns Azure Advisor suggestions — pair with check_budgets to prioritize savings for at-risk budgets. ' +
-        'find_idle_resources detects provisioned-but-unused resources (unattached disks, orphaned NICs, unused IPs, empty App Service plans) with cost estimates. ' +
-        'For cross-subscription queries, call list_subscriptions first to discover available subscriptions, then get_cross_subscription_costs to compare them. ' +
-        'get_cost_by_tag groups spending by any Azure tag key — useful for chargeback and cost allocation by team, environment, or project. ' +
-        'find_untagged_resources identifies resources missing tags, which creates cost attribution gaps. ' +
+        'list_recommendations returns cost optimization suggestions (Azure Advisor or GCP Recommender) — pair with check_budgets to prioritize savings for at-risk budgets. ' +
+        'find_idle_resources detects provisioned-but-unused resources with cost estimates. ' +
+        'For Azure cross-subscription queries, call list_subscriptions first, then get_cross_subscription_costs. ' +
+        'For GCP cross-project queries, call list_projects first, then get_cross_project_costs. ' +
+        'get_cost_by_tag groups spending by any tag key (Azure tags or GCP labels) — useful for chargeback and cost allocation. ' +
+        'find_untagged_resources identifies resources missing tags/labels, which creates cost attribution gaps. ' +
         'All costs are in USD. All dates use YYYY-MM-DD format.',
     },
   );
