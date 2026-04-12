@@ -3,6 +3,7 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { setupE2EClient, callTool, callToolExpectError, pace } from './helpers.js';
 
 const RUN_E2E = process.env.E2E_AZURE === 'true';
+const GCP_CONFIGURED = !!process.env.GOOGLE_CLOUD_PROJECT && !!process.env.GCP_BILLING_TABLE;
 
 describe.skipIf(!RUN_E2E)('Azure E2E', () => {
   let client: Client;
@@ -156,39 +157,21 @@ describe.skipIf(!RUN_E2E)('Azure E2E', () => {
     expect(text).toContain('active');
   });
 
-  // --- GCP tools (error when not configured, data when configured) ---
+  // --- GCP not configured (skipped when both providers are active) ---
 
-  test('list_projects returns error or data', async () => {
-    const result = await client.callTool({ name: 'list_projects', arguments: { provider: 'gcp' } });
-    const content = result.content as Array<{ type: string; text: string }>;
-    const text = content[0]?.text ?? '';
-    if (result.isError) {
-      expect(text).toContain('GCP not configured');
-    } else {
-      expect(text).toContain('Project');
-    }
+  test.skipIf(GCP_CONFIGURED)('list_projects returns error when GCP not configured', async () => {
+    const text = await callToolExpectError(client, 'list_projects', { provider: 'gcp' });
+    expect(text).toContain('GCP not configured');
   });
 
-  test('get_cost_summary with gcp returns error or data', async () => {
-    const result = await client.callTool({ name: 'get_cost_summary', arguments: { provider: 'gcp' } });
-    const content = result.content as Array<{ type: string; text: string }>;
-    const text = content[0]?.text ?? '';
-    if (result.isError) {
-      expect(text).toContain('not configured');
-    } else {
-      expect(text).toContain('Cost Summary');
-    }
+  test.skipIf(GCP_CONFIGURED)('get_cost_summary with gcp returns error when GCP not configured', async () => {
+    const text = await callToolExpectError(client, 'get_cost_summary', { provider: 'gcp' });
+    expect(text).toContain('not configured');
   });
 
-  test('get_cross_project_costs returns error or data', async () => {
-    const result = await client.callTool({ name: 'get_cross_project_costs', arguments: { provider: 'gcp' } });
-    const content = result.content as Array<{ type: string; text: string }>;
-    const text = content[0]?.text ?? '';
-    if (result.isError) {
-      expect(text).toMatch(/not configured|No GCP projects/);
-    } else {
-      expect(text).toContain('$');
-    }
+  test.skipIf(GCP_CONFIGURED)('get_cross_project_costs returns error when GCP not configured', async () => {
+    const text = await callToolExpectError(client, 'get_cross_project_costs', { provider: 'gcp' });
+    expect(text).toMatch(/not configured|No GCP projects/);
   });
 
   // --- Prompts ---
