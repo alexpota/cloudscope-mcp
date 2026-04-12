@@ -3,6 +3,7 @@ import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { setupE2EClient, callTool, callToolExpectError, pace } from './helpers.js';
 
 const RUN_E2E = process.env.E2E_GCP === 'true';
+const AZURE_CONFIGURED = process.env.E2E_AZURE === 'true';
 
 describe.skipIf(!RUN_E2E)('GCP E2E', () => {
   let client: Client;
@@ -126,12 +127,11 @@ describe.skipIf(!RUN_E2E)('GCP E2E', () => {
     expect(text).toContain('active');
   });
 
-  // --- Azure not configured (conditional) ---
+  // --- Azure not configured (skipped when both providers are active) ---
 
-  test('list_subscriptions returns data or error', async () => {
-    const result = await client.callTool({ name: 'list_subscriptions', arguments: { provider: 'azure' } });
-    const content = result.content as Array<{ type: string; text: string }>;
-    expect(content[0]?.text).toBeDefined();
+  test.skipIf(AZURE_CONFIGURED)('list_subscriptions returns error when Azure not configured', async () => {
+    const text = await callToolExpectError(client, 'list_subscriptions', { provider: 'azure' });
+    expect(text).toContain('Azure not configured');
   });
 
   // --- Prompts with GCP ---
