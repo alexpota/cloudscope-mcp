@@ -3,7 +3,7 @@ import { toolResult, withProvider, type ToolResult, type Providers } from './typ
 import { DEFAULT_CURRENCY } from '../constants.js';
 
 interface RecommendationsInput {
-  provider: 'azure';
+  provider: 'azure' | 'gcp';
   category: 'all' | 'compute' | 'storage' | 'networking';
 }
 

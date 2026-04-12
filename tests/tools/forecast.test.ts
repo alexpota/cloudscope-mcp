@@ -19,7 +19,7 @@ describe('handleGetCostForecast', () => {
 
     const result = await handleGetCostForecast(
       { provider: 'azure', days: 30 },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     const text = result.content[0].text;
@@ -45,7 +45,7 @@ describe('handleGetCostForecast', () => {
 
     const result = await handleGetCostForecast(
       { provider: 'azure', days: 30 },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     const text = result.content[0].text;
@@ -66,7 +66,7 @@ describe('handleGetCostForecast', () => {
 
     const result = await handleGetCostForecast(
       { provider: 'azure', days: 30 },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     const text = result.content[0].text;
@@ -77,7 +77,7 @@ describe('handleGetCostForecast', () => {
   it('returns error when provider not configured', async () => {
     const result = await handleGetCostForecast(
       { provider: 'azure', days: 30 },
-      { azure: null },
+      { azure: null, gcp: null },
     );
 
     expect(result.content[0].text).toContain('not configured');

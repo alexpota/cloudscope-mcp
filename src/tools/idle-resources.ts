@@ -2,7 +2,7 @@ import { formatMoney, formatTable } from '../utils/formatter.js';
 import { toolResult, withProvider, type ToolResult, type Providers } from './types.js';
 
 interface IdleResourcesInput {
-  provider: 'azure';
+  provider: 'azure' | 'gcp';
 }
 
 export async function handleFindIdleResources(

@@ -48,8 +48,10 @@ export interface UntaggedResource {
   location: string;
 }
 
+export type GroupByKey = 'service' | 'resource_group' | 'region' | 'resource_id';
+
 export interface CloudCostProvider {
-  queryCosts(start: string, end: string, grouping: string): Promise<CostQueryResult>;
+  queryCosts(start: string, end: string, groupBy: GroupByKey): Promise<CostQueryResult>;
   queryCostsByTag(start: string, end: string, tagKey: string): Promise<CostQueryResult>;
   findIdleResources(): Promise<IdleResource[]>;
   findUntaggedResources(): Promise<UntaggedResource[]>;

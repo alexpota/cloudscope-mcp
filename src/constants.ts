@@ -16,13 +16,6 @@ export const MAX_CACHE_ENTRIES = 100;
 // Date validation
 export const DATE_FORMAT_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
-// Cost grouping dimension mapping
-export const GROUP_BY_MAP: Record<string, string> = {
-  service: 'ServiceName',
-  resource_group: 'ResourceGroup',
-  region: 'ResourceLocation',
-};
-
 export const HTTP_STATUS_TOO_MANY_REQUESTS = 429;
 
 // Azure SDK surfaces 429 as either `statusCode: 429` or these `code` values.
@@ -32,9 +25,9 @@ export const AZURE_THROTTLE_ERROR_CODES: readonly string[] = ['TooManyRequests',
 // which the Azure SDK's default retry policy does not handle. We compensate
 // with our own concurrency limit + bounded retry loop (see utils/rate-limit).
 export const AZURE_COST_MANAGEMENT_CONCURRENCY = 2;
-export const AZURE_RETRY_MAX_ATTEMPTS = 3;
+export const AZURE_RETRY_MAX_ATTEMPTS = 5;
 export const AZURE_RETRY_BASE_DELAY_MS = 1000;
-export const AZURE_RETRY_MAX_DELAY_MS = 4000;
+export const AZURE_RETRY_MAX_DELAY_MS = 16000;
 
 // Maps user-facing category enum → Azure resource type prefix in rec.impactedField.
 // "networking" ≠ "microsoft.network" without this mapping.
@@ -55,7 +48,6 @@ export const AZURE_COST_AGGREGATION_NAME = 'Cost';
 export const AZURE_COST_AGGREGATION_FUNCTION = 'Sum';
 export const AZURE_GROUPING_TYPE = 'Dimension';
 export const AZURE_TAG_GROUPING_TYPE = 'TagKey';
-export const AZURE_RESOURCE_ID_DIMENSION = 'ResourceId';
 export const AZURE_TAG_VALUE_COLUMN = 'TagValue';
 export const AZURE_GRANULARITY_NONE = 'None';
 export const AZURE_GRANULARITY_DAILY = 'Daily';
@@ -103,3 +95,10 @@ export const IDLE_RESOURCE_REASONS: Record<string, string> = {
 };
 
 export const DEFAULT_IDLE_RESOURCE_COST_DAYS = 30;
+
+// GCP rate limiting
+export const GCP_BIGQUERY_CONCURRENCY = 5;
+export const GCP_RECOMMENDER_CONCURRENCY = 10;
+export const GCP_RETRY_MAX_ATTEMPTS = 3;
+export const GCP_RETRY_BASE_DELAY_MS = 1000;
+export const GCP_RETRY_MAX_DELAY_MS = 8000;

@@ -20,7 +20,7 @@ describe('Edge cases', () => {
 
       const result = await handleGetCostSummary(
         { provider: 'azure', start_date: '2026-03-01', end_date: '2026-03-31', group_by: 'service' },
-        { azure: client as any },
+        { azure: client as any, gcp: null },
       );
 
       expect(result.isError).toBeUndefined();
@@ -38,7 +38,7 @@ describe('Edge cases', () => {
 
       const result = await handleDetectAnomalies(
         { provider: 'azure', days: 7, threshold: 20 },
-        { azure: client as any },
+        { azure: client as any, gcp: null },
       );
 
       expect(result.isError).toBeUndefined();
@@ -67,7 +67,7 @@ describe('Edge cases', () => {
 
       const result = await handleDetectAnomalies(
         { provider: 'azure', days: 7, threshold: 20 },
-        { azure: client as any },
+        { azure: client as any, gcp: null },
       );
 
       const text = result.content[0].text;
@@ -84,7 +84,7 @@ describe('Edge cases', () => {
 
       const result = await handleGetCostSummary(
         { provider: 'azure', start_date: '2026-03-31', end_date: '2026-03-01', group_by: 'service' },
-        { azure: client as any },
+        { azure: client as any, gcp: null },
       );
 
       expect(result.isError).toBe(true);
@@ -107,7 +107,7 @@ describe('Edge cases', () => {
           }),
       });
 
-      const providers = { azure: client as any };
+      const providers = { azure: client as any, gcp: null };
 
       const [result1, result2] = await Promise.all([
         handleGetCostSummary(
@@ -135,7 +135,7 @@ describe('Edge cases', () => {
           }),
       });
 
-      const providers = { azure: client as any };
+      const providers = { azure: client as any, gcp: null };
 
       const [result1, result2] = await Promise.all([
         handleGetCostSummary(
@@ -149,7 +149,7 @@ describe('Edge cases', () => {
       ]);
 
       expect(result1.isError).toBe(true);
-      expect(result1.content[0].text).toContain('First call fails');
+      expect(result1.content[0].text).toContain('azure request failed');
       expect(result2.isError).toBeUndefined();
       expect(result2.content[0].text).toContain('OK');
     });

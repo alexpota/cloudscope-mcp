@@ -4,7 +4,7 @@ import { toolResult, toolError, withProvider, type ToolResult, type Providers } 
 import { firstOfCurrentMonth, todayYMD, validateDateRange } from '../utils/dates.js';
 
 interface TagCostsInput {
-  provider: 'azure';
+  provider: 'azure' | 'gcp';
   tag_key: string;
   start_date?: string;
   end_date?: string;

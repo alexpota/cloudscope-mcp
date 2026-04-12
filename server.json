@@ -1,18 +1,18 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.alexpota/cloudscope",
-  "description": "Azure cost management MCP server: spending, forecasts, anomalies, budgets, idle resources, tags.",
+  "description": "Multi-cloud cost management MCP server (Azure + GCP): spending, forecasts, anomalies, budgets, idle resources, tags.",
   "repository": {
     "url": "https://github.com/alexpota/cloudscope-mcp",
     "source": "github"
   },
-  "version": "0.2.0",
+  "version": "0.3.0",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "cloudscope-mcp",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "transport": {
         "type": "stdio"
       },
@@ -33,13 +33,37 @@
           "name": "AZURE_CLIENT_ID",
           "description": "Service principal client ID. Optional; required only when using ClientSecretCredential.",
           "isRequired": false,
-          "isSecret": true
+          "isSecret": false
         },
         {
           "name": "AZURE_CLIENT_SECRET",
           "description": "Service principal client secret. Optional; required only when using ClientSecretCredential.",
           "isRequired": false,
           "isSecret": true
+        },
+        {
+          "name": "GOOGLE_CLOUD_PROJECT",
+          "description": "GCP project ID. Recommended to set explicitly in the MCP client env block — may not be inherited from gcloud shell configuration.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "GCP_BILLING_TABLE",
+          "description": "Fully-qualified BigQuery billing export table (project.dataset.table_name). Required for GCP cost queries.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "GCP_BILLING_ACCOUNT_ID",
+          "description": "GCP billing account ID (format: XXXXXX-XXXXXX-XXXXXX). Optional; needed only for budget monitoring.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "GOOGLE_APPLICATION_CREDENTIALS",
+          "description": "Path to GCP service account JSON key file. Optional; falls back to Application Default Credentials (gcloud auth).",
+          "isRequired": false,
+          "isSecret": false
         }
       ]
     }

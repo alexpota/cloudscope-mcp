@@ -12,6 +12,7 @@ import type {
   BudgetInfo,
   IdleResource,
   UntaggedResource,
+  GroupByKey,
 } from '../types.js';
 import {
   AZURE_COST_TYPE,
@@ -42,11 +43,9 @@ import {
   KQL_UNTAGGED_RESOURCES,
   IDLE_RESOURCE_REASONS,
   DEFAULT_IDLE_RESOURCE_COST_DAYS,
-  AZURE_RESOURCE_ID_DIMENSION,
   AZURE_TAG_VALUE_COLUMN,
   COST_STATUS_FORECAST,
   COST_STATUS_ACTUAL,
-  GROUP_BY_MAP,
 } from '../../constants.js';
 import { Cache } from '../../utils/cache.js';
 import { createRateLimiter, withRetry, type RateLimiter } from '../../utils/rate-limit.js';
@@ -100,6 +99,17 @@ export class AzureCostClient implements CloudCostProvider {
     return `/subscriptions/${this.subscriptionId}`;
   }
 
+  private static readonly GROUPING_MAP: Record<GroupByKey, string> = {
+    service: 'ServiceName',
+    resource_group: 'ResourceGroup',
+    region: 'ResourceLocation',
+    resource_id: 'ResourceId',
+  };
+
+  private resolveGroupBy(groupBy: GroupByKey): string {
+    return AzureCostClient.GROUPING_MAP[groupBy];
+  }
+
   /** Serializes concurrent calls and retries on 429 with bounded backoff. */
   private async callAzure<T>(fn: () => Promise<T>): Promise<T> {
     return withRetry(() => this.rateLimiter.run(fn), {
@@ -110,8 +120,8 @@ export class AzureCostClient implements CloudCostProvider {
     });
   }
 
-  async queryCosts(startDate: string, endDate: string, grouping: string): Promise<CostQueryResult> {
-    return this.queryCostsForScope(this.scope, startDate, endDate, grouping);
+  async queryCosts(startDate: string, endDate: string, groupBy: GroupByKey): Promise<CostQueryResult> {
+    return this.queryCostsForScope(this.scope, startDate, endDate, this.resolveGroupBy(groupBy));
   }
 
   async queryCostsForScope(
@@ -348,7 +358,7 @@ export class AzureCostClient implements CloudCostProvider {
     // Query API has no IN filter for resource IDs. We match by ID after the fact.
     const costMap = new Map<string, { cost: number; currency: string }>();
     try {
-      const costResult = await this.queryCosts(startDate, endDate, AZURE_RESOURCE_ID_DIMENSION);
+      const costResult = await this.queryCosts(startDate, endDate, 'resource_id');
       for (const row of costResult.rows) {
         costMap.set(row.name.toLowerCase(), { cost: row.cost, currency: costResult.currency });
       }
@@ -389,11 +399,13 @@ export class AzureCostClient implements CloudCostProvider {
   async validate(): Promise<{ connected: boolean; detail: string }> {
     try {
       const today = new Date().toISOString().split('T')[0] ?? '';
-      await this.queryCosts(today, today, GROUP_BY_MAP['service'] ?? 'ServiceName');
+      await this.queryCosts(today, today, 'service');
       return { connected: true, detail: `subscription: ${this.subscriptionId}` };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      return { connected: false, detail: message };
+    } catch {
+      return {
+        connected: false,
+        detail: 'Failed to query Azure Cost Management. Verify az login is active and credentials have Cost Management Reader role.',
+      };
     }
   }
 }

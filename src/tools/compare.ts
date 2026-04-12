@@ -1,10 +1,10 @@
 import { formatMoney, formatTable } from '../utils/formatter.js';
 import { validateDateRange } from '../utils/dates.js';
-import { GROUP_BY_MAP, DEFAULT_CURRENCY } from '../constants.js';
+import { DEFAULT_CURRENCY } from '../constants.js';
 import { toolResult, toolError, withProvider, type ToolResult, type Providers } from './types.js';
 
 interface CompareInput {
-  provider: 'azure';
+  provider: 'azure' | 'gcp';
   period_a_start: string;
   period_a_end: string;
   period_b_start: string;
@@ -22,11 +22,9 @@ export async function handleComparePeriods(
   if (errB) return toolError(new Error(`Period B: ${errB}`));
 
   return withProvider(providers, input.provider, async (provider) => {
-    const grouping = GROUP_BY_MAP[input.group_by] || 'ServiceName';
-
     const [periodA, periodB] = await Promise.all([
-      provider.queryCosts(input.period_a_start, input.period_a_end, grouping),
-      provider.queryCosts(input.period_b_start, input.period_b_end, grouping),
+      provider.queryCosts(input.period_a_start, input.period_a_end, input.group_by),
+      provider.queryCosts(input.period_b_start, input.period_b_end, input.group_by),
     ]);
 
     const mapA = new Map(periodA.rows.map((r) => [r.name, r.cost]));

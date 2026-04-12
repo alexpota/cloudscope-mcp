@@ -18,7 +18,7 @@ describe('handleGetCostByTag', () => {
 
     const result = await handleGetCostByTag(
       { provider: 'azure', tag_key: 'team' },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     const text = result.content[0].text;
@@ -36,7 +36,7 @@ describe('handleGetCostByTag', () => {
 
     const result = await handleGetCostByTag(
       { provider: 'azure', tag_key: 'environment' },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     const text = result.content[0].text;
@@ -46,7 +46,7 @@ describe('handleGetCostByTag', () => {
   it('returns error for invalid date range', async () => {
     const result = await handleGetCostByTag(
       { provider: 'azure', tag_key: 'team', start_date: '2026-04-10', end_date: '2026-04-01' },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     expect(result.isError).toBe(true);
@@ -55,7 +55,7 @@ describe('handleGetCostByTag', () => {
   it('returns error when provider is not configured', async () => {
     const result = await handleGetCostByTag(
       { provider: 'azure', tag_key: 'team' },
-      { azure: null },
+      { azure: null, gcp: null },
     );
 
     expect(result.isError).toBe(true);
@@ -67,7 +67,7 @@ describe('handleGetCostByTag', () => {
 
     await handleGetCostByTag(
       { provider: 'azure', tag_key: 'project' },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     expect(mockAzureClient.queryCostsByTag).toHaveBeenCalledWith(

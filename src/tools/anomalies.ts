@@ -4,7 +4,7 @@ import { toDateString } from '../utils/dates.js';
 import { MS_PER_DAY, NEW_SERVICE_CHANGE_PERCENT, DEFAULT_CURRENCY } from '../constants.js';
 
 interface AnomaliesInput {
-  provider: 'azure';
+  provider: 'azure' | 'gcp';
   days: number;
   threshold: number;
 }
@@ -21,8 +21,8 @@ export async function handleDetectAnomalies(
     const previousStart = toDateString(new Date(now.getTime() - input.days * 2 * MS_PER_DAY));
 
     const [current, previous] = await Promise.all([
-      provider.queryCosts(currentStart, currentEnd, 'ServiceName'),
-      provider.queryCosts(previousStart, previousEnd, 'ServiceName'),
+      provider.queryCosts(currentStart, currentEnd, 'service'),
+      provider.queryCosts(previousStart, previousEnd, 'service'),
     ]);
 
     const previousMap = new Map(previous.rows.map((r) => [r.name, r.cost]));

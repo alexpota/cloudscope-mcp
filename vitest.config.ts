@@ -5,6 +5,9 @@ const require = createRequire(import.meta.url);
 const pkg = require('./package.json') as { version: string };
 
 export default defineConfig({
+  test: {
+    exclude: ['node_modules', 'tests/e2e/**'],
+  },
   define: {
     __PKG_VERSION__: JSON.stringify(pkg.version),
   },

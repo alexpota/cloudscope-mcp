@@ -130,4 +130,49 @@ describe('registerPrompts', () => {
       expect(result.messages[0]?.content.text).toContain('environment');
     });
   });
+
+  describe('provider-aware prompts', () => {
+    it.each([
+      ['monthly-cost-review'],
+      ['waste-audit'],
+      ['cost-spike-investigation'],
+      ['chargeback-report'],
+      ['executive-summary'],
+    ])('%s declares a provider argument in argsSchema', (name) => {
+      const config = configFor(name);
+      expect(config.argsSchema).toHaveProperty('provider');
+    });
+
+    it('monthly-cost-review defaults to Azure language', () => {
+      const result = handlerFor('monthly-cost-review')({});
+      expect(result.messages[0]?.content.text).toContain('Azure subscription');
+    });
+
+    it('monthly-cost-review uses GCP language when provider is gcp', () => {
+      const result = handlerFor('monthly-cost-review')({ provider: 'gcp' });
+      expect(result.messages[0]?.content.text).toContain('GCP project');
+      expect(result.messages[0]?.content.text).not.toContain('Azure subscription');
+    });
+
+    it('waste-audit uses Azure Advisor by default', () => {
+      const result = handlerFor('waste-audit')({});
+      expect(result.messages[0]?.content.text).toContain('Azure Advisor');
+    });
+
+    it('waste-audit uses GCP Recommender when provider is gcp', () => {
+      const result = handlerFor('waste-audit')({ provider: 'gcp' });
+      expect(result.messages[0]?.content.text).toContain('GCP Recommender');
+    });
+
+    it('chargeback-report uses label instead of tag for gcp', () => {
+      const result = handlerFor('chargeback-report')({ tag_key: 'team', provider: 'gcp' });
+      expect(result.messages[0]?.content.text).toContain('label');
+      expect(result.messages[0]?.content.text).toContain('GCP project');
+    });
+
+    it('executive-summary declares provider argument', () => {
+      const config = configFor('executive-summary');
+      expect(config.argsSchema).toHaveProperty('provider');
+    });
+  });
 });

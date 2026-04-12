@@ -24,7 +24,7 @@ describe('handleDetectAnomalies', () => {
 
     const result = await handleDetectAnomalies(
       { provider: 'azure', days: 7, threshold: 20 },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     const text = result.content[0].text;
@@ -46,7 +46,7 @@ describe('handleDetectAnomalies', () => {
 
     const result = await handleDetectAnomalies(
       { provider: 'azure', days: 7, threshold: 20 },
-      { azure: mockAzureClient as any },
+      { azure: mockAzureClient as any, gcp: null },
     );
 
     expect(result.content[0].text).toContain('No anomalies');

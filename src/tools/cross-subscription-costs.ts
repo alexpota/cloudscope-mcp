@@ -54,16 +54,18 @@ export async function handleCrossSubscriptionCosts(
         const data = await deps.queryCostsForScope(scope, startDate, endDate, 'ServiceName');
         const total = data.rows.reduce((sum, r) => sum + r.cost, 0);
         results.push({ sub, cost: total, currency: data.currency || DEFAULT_CURRENCY });
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        failures.push({ sub, error: message });
+      } catch {
+        failures.push({ sub, error: 'access denied or query failed' });
       }
     }),
   );
 
   if (results.length === 0) {
-    const reasons = failures.map((f) => `${f.sub.name}: ${f.error}`).join('; ');
-    return toolError(new Error(`All subscriptions failed: ${reasons}`));
+    return toolError(
+      new Error(
+        `All ${failures.length} subscription(s) failed. Verify credentials have Cost Management Reader role on each subscription.`,
+      ),
+    );
   }
 
   results.sort((a, b) => b.cost - a.cost);
