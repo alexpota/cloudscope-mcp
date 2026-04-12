@@ -99,6 +99,7 @@ GCP requires a BigQuery billing export table. Find your table name in **GCP Cons
       "command": "npx",
       "args": ["-y", "cloudscope-mcp"],
       "env": {
+        "GOOGLE_CLOUD_PROJECT": "my-project",
         "GCP_BILLING_TABLE": "my-project.my_dataset.gcp_billing_export_resource_v1_XXXXXX"
       }
     }
@@ -106,15 +107,34 @@ GCP requires a BigQuery billing export table. Find your table name in **GCP Cons
 }
 ```
 
-`GOOGLE_CLOUD_PROJECT` is auto-set by `gcloud`. Override with `GCP_PROJECT_ID` if your billing dataset lives in a different project.
+Set `GOOGLE_CLOUD_PROJECT` to your GCP project ID. Override with `GCP_PROJECT_ID` if your billing dataset lives in a different project.
 
 | Variable                         | Description                                               | Required |
 | -------------------------------- | --------------------------------------------------------- | -------- |
+| `GOOGLE_CLOUD_PROJECT`           | GCP project ID                                            | Yes      |
 | `GCP_BILLING_TABLE`              | Fully-qualified BigQuery table (`project.dataset.table`)  | Yes      |
-| `GOOGLE_CLOUD_PROJECT`           | GCP project ID (auto-set by `gcloud`)                     | Yes      |
 | `GCP_PROJECT_ID`                 | Override project ID if different from `GOOGLE_CLOUD_PROJECT` | No    |
 | `GCP_BILLING_ACCOUNT_ID`         | Billing account ID for budget monitoring                  | No       |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON key file                     | No       |
+
+### Both Providers
+
+```json
+{
+  "mcpServers": {
+    "cloudscope": {
+      "command": "npx",
+      "args": ["-y", "cloudscope-mcp"],
+      "env": {
+        "GOOGLE_CLOUD_PROJECT": "my-project",
+        "GCP_BILLING_TABLE": "my-project.my_dataset.gcp_billing_export_resource_v1_XXXXXX"
+      }
+    }
+  }
+}
+```
+
+Azure is auto-detected from `az login`. Add `AZURE_SUBSCRIPTION_ID` to target a specific subscription.
 
 ## Tools
 
