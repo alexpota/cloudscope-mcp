@@ -32,6 +32,53 @@ import {
   DEFAULT_TOP_RESOURCES_DAYS,
 } from './constants.js';
 
+function buildInstructions(
+  hasAzure: boolean,
+  hasGcp: boolean,
+  defaultProvider: 'azure' | 'gcp',
+  subscriptionId: string,
+  projectId: string,
+): string {
+  const parts: string[] = [];
+
+  // Connected providers
+  if (hasAzure && hasGcp) {
+    parts.push(
+      `CloudScope is connected to Azure (subscription: ${subscriptionId}) and GCP (project: ${projectId}). ` +
+        `The default provider is ${defaultProvider}. To query the other provider, pass provider: '${defaultProvider === 'azure' ? 'gcp' : 'azure'}' explicitly.`,
+    );
+  } else if (hasAzure) {
+    parts.push(`CloudScope is connected to Azure (subscription: ${subscriptionId}). GCP is not configured.`);
+  } else if (hasGcp) {
+    parts.push(`CloudScope is connected to GCP (project: ${projectId}). Azure is not configured.`);
+  } else {
+    parts.push('CloudScope has no providers configured. Set Azure or GCP environment variables to enable cost queries.');
+  }
+
+  // Usage guidance
+  parts.push(
+    'Call get_current_date before any date-dependent tool if the current date is unclear — LLMs frequently hallucinate dates.',
+    'For investigating cost increases, combine detect_anomalies with top_spending_resources to identify both the service and the specific resource.',
+    'list_recommendations returns cost optimization suggestions — pair with check_budgets to prioritize savings for at-risk budgets.',
+    'find_idle_resources detects provisioned-but-unused resources with cost estimates.',
+  );
+
+  if (hasAzure) {
+    parts.push('For Azure cross-subscription queries, call list_subscriptions first, then get_cross_subscription_costs.');
+  }
+  if (hasGcp) {
+    parts.push('For GCP cross-project queries, call list_projects first, then get_cross_project_costs.');
+  }
+
+  parts.push(
+    'get_cost_by_tag groups spending by any tag key (Azure tags or GCP labels) — useful for chargeback and cost allocation.',
+    'find_untagged_resources identifies resources missing tags/labels, which creates cost attribution gaps.',
+    'All costs are in USD. All dates use YYYY-MM-DD format.',
+  );
+
+  return parts.join(' ');
+}
+
 export async function createServer(): Promise<McpServer> {
   const config = getConfig();
 
@@ -46,26 +93,17 @@ export async function createServer(): Promise<McpServer> {
   const gcpProjects = gcpResult?.projects ?? [];
   const activeGcpProjectId = gcpResult?.projectId ?? '';
 
+  const hasAzure = providers.azure !== null;
+  const hasGcp = providers.gcp !== null;
+  const defaultProvider: 'azure' | 'gcp' = hasGcp && !hasAzure ? 'gcp' : 'azure';
+
   if (azureResult && config.azure.subscriptionId) {
     console.error(`${PACKAGE_NAME} v${PACKAGE_VERSION} | Azure: configured`);
   }
 
   const server = new McpServer(
     { name: PACKAGE_NAME, version: PACKAGE_VERSION },
-    {
-      instructions:
-        'CloudScope provides read-only access to Azure and GCP cost data. ' +
-        'All tools accept a provider parameter (azure or gcp, default: azure). ' +
-        'Call get_current_date before any date-dependent tool if the current date is unclear — LLMs frequently hallucinate dates. ' +
-        'For investigating cost increases, combine detect_anomalies with top_spending_resources to identify both the service and the specific resource. ' +
-        'list_recommendations returns cost optimization suggestions (Azure Advisor or GCP Recommender) — pair with check_budgets to prioritize savings for at-risk budgets. ' +
-        'find_idle_resources detects provisioned-but-unused resources with cost estimates. ' +
-        'For Azure cross-subscription queries, call list_subscriptions first, then get_cross_subscription_costs. ' +
-        'For GCP cross-project queries, call list_projects first, then get_cross_project_costs. ' +
-        'get_cost_by_tag groups spending by any tag key (Azure tags or GCP labels) — useful for chargeback and cost allocation. ' +
-        'find_untagged_resources identifies resources missing tags/labels, which creates cost attribution gaps. ' +
-        'All costs are in USD. All dates use YYYY-MM-DD format.',
-    },
+    { instructions: buildInstructions(hasAzure, hasGcp, defaultProvider, activeSubscriptionId, activeGcpProjectId) },
   );
 
   server.registerTool(
@@ -75,7 +113,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Returns a cost breakdown for a date range grouped by service, resource group, tag, or region. Defaults to current month if dates are omitted. Output includes a sorted table with each group name, cost in USD, and percentage of total. Includes a total row, daily average, and collapses groups beyond the top 10 into an "Other" row. Returns an error if the date range is invalid. Use this when the user asks "how much am I spending", "what costs the most", "show me my cloud bill", or wants a spending overview.',
       inputSchema: {
-        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
+        provider: z.enum(['azure', 'gcp']).default(defaultProvider).describe('Cloud provider to query (azure or gcp)'),
         start_date: z
           .string()
           .optional()
@@ -97,7 +135,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Compares daily spending over the last N days against the prior N days to find cost spikes. Returns a list of services where spending increased above the threshold percentage, sorted by increase amount. Each entry includes service name, previous average, current average, percentage change, and absolute change in USD. Returns an empty list if no anomalies found. Use this when the user asks about unexpected cost increases, billing surprises, or wants to know if anything changed recently.',
       inputSchema: {
-        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
+        provider: z.enum(['azure', 'gcp']).default(defaultProvider).describe('Cloud provider to query (azure or gcp)'),
         days: z
           .number()
           .default(DEFAULT_ANOMALY_DAYS)
@@ -118,7 +156,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Fetches cost-saving recommendations (Azure Advisor or GCP Recommender) filtered by category. Returns a list of recommendations each containing: title, category, impact level (high/medium/low), estimated annual savings in USD, affected resource ID, and a short description of the suggested action. Returns an empty list if no recommendations exist for the selected category. Use this when the user wants to reduce costs, find waste, or optimize resource usage.',
       inputSchema: {
-        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
+        provider: z.enum(['azure', 'gcp']).default(defaultProvider).describe('Cloud provider to query (azure or gcp)'),
         category: z
           .enum(['all', 'compute', 'storage', 'networking'])
           .default('all')
@@ -135,7 +173,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Projects future cloud spending for the next N days using a linear trend based on the last 30 days of actual costs. Returns the forecast period dates, projected total cost in USD, average daily projected cost, and the confidence basis (number of historical days used). Use this when the user asks "how much will I spend this month", wants to predict upcoming bills, or needs to plan budgets. Returns an error if insufficient historical data exists.',
       inputSchema: {
-        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
+        provider: z.enum(['azure', 'gcp']).default(defaultProvider).describe('Cloud provider to query (azure or gcp)'),
         days: z
           .number()
           .default(DEFAULT_FORECAST_DAYS)
@@ -152,7 +190,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Check budget status: current spend vs limit, percentage used, forecast, and overage risk. For GCP, requires GCP_BILLING_ACCOUNT_ID to be set.',
       inputSchema: {
-        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
+        provider: z.enum(['azure', 'gcp']).default(defaultProvider).describe('Cloud provider to query (azure or gcp)'),
       },
     },
     async (input) => handleCheckBudgets(input, providers),
@@ -165,7 +203,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Compare costs between two date ranges, showing per-service absolute and percentage changes',
       inputSchema: {
-        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
+        provider: z.enum(['azure', 'gcp']).default(defaultProvider).describe('Cloud provider to query (azure or gcp)'),
         period_a_start: z.string().describe('Period A start date (YYYY-MM-DD)'),
         period_a_end: z.string().describe('Period A end date (YYYY-MM-DD)'),
         period_b_start: z.string().describe('Period B start date (YYYY-MM-DD)'),
@@ -185,7 +223,7 @@ export async function createServer(): Promise<McpServer> {
       title: 'Top Spending Resources',
       description: 'Find the N most expensive individual resources over a time period. On GCP, requires the detailed billing export for resource-level data.',
       inputSchema: {
-        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
+        provider: z.enum(['azure', 'gcp']).default(defaultProvider).describe('Cloud provider to query (azure or gcp)'),
         days: z
           .number()
           .default(DEFAULT_TOP_RESOURCES_DAYS)
@@ -206,7 +244,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Breaks down costs by a specific tag key such as team, environment, or project. Returns a sorted table with each tag value, cost in USD, and percentage of total. Includes a total row and daily average. Returns an error if the date range is invalid or no tagged costs exist. Use this when the user asks about costs per team, per environment, cost allocation, chargeback, or wants to understand spending by any custom tag.',
       inputSchema: {
-        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
+        provider: z.enum(['azure', 'gcp']).default(defaultProvider).describe('Cloud provider to query (azure or gcp)'),
         tag_key: z
           .string()
           .describe('Tag key to group costs by (e.g. team, environment, project)'),
@@ -230,7 +268,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Finds cloud resources that are provisioned but not actively used — unattached disks, orphaned network interfaces, unused IPs, idle VMs, and empty compute plans. Returns each resource with its name, type, resource group/project, reason it is idle, and estimated monthly cost in USD. Returns an empty list if no idle resources are found. Use this when the user asks about waste, idle or unused resources, cleanup opportunities, or wants to find resources to delete to reduce costs.',
       inputSchema: {
-        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
+        provider: z.enum(['azure', 'gcp']).default(defaultProvider).describe('Cloud provider to query (azure or gcp)'),
       },
     },
     async (input) => handleFindIdleResources(input, providers),
@@ -243,7 +281,7 @@ export async function createServer(): Promise<McpServer> {
       description:
         'Finds resources that have no tags or labels applied. Returns each resource with its name, type, resource group/project, and location. Untagged resources cannot be attributed to teams or projects, making cost allocation and chargeback impossible. Returns an empty list if all resources are tagged. Use this when the user asks about tagging compliance, governance, cost attribution gaps, or wants to identify resources that need tags.',
       inputSchema: {
-        provider: z.enum(['azure', 'gcp']).default('azure').describe('Cloud provider to query (azure or gcp)'),
+        provider: z.enum(['azure', 'gcp']).default(defaultProvider).describe('Cloud provider to query (azure or gcp)'),
       },
     },
     async (input) => handleFindUntaggedResources(input, providers),
