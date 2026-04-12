@@ -156,21 +156,39 @@ describe.skipIf(!RUN_E2E)('Azure E2E', () => {
     expect(text).toContain('active');
   });
 
-  // --- GCP not configured ---
+  // --- GCP tools (error when not configured, data when configured) ---
 
-  test('list_projects with no GCP returns error', async () => {
-    const text = await callToolExpectError(client, 'list_projects', { provider: 'gcp' });
-    expect(text).toContain('GCP not configured');
+  test('list_projects returns error or data', async () => {
+    const result = await client.callTool({ name: 'list_projects', arguments: { provider: 'gcp' } });
+    const content = result.content as Array<{ type: string; text: string }>;
+    const text = content[0]?.text ?? '';
+    if (result.isError) {
+      expect(text).toContain('GCP not configured');
+    } else {
+      expect(text).toContain('Project');
+    }
   });
 
-  test('get_cost_summary with gcp returns error', async () => {
-    const text = await callToolExpectError(client, 'get_cost_summary', { provider: 'gcp' });
-    expect(text).toContain('not configured');
+  test('get_cost_summary with gcp returns error or data', async () => {
+    const result = await client.callTool({ name: 'get_cost_summary', arguments: { provider: 'gcp' } });
+    const content = result.content as Array<{ type: string; text: string }>;
+    const text = content[0]?.text ?? '';
+    if (result.isError) {
+      expect(text).toContain('not configured');
+    } else {
+      expect(text).toContain('Cost Summary');
+    }
   });
 
-  test('get_cross_project_costs with no GCP returns error', async () => {
-    const text = await callToolExpectError(client, 'get_cross_project_costs', { provider: 'gcp' });
-    expect(text).toContain('No GCP projects');
+  test('get_cross_project_costs returns error or data', async () => {
+    const result = await client.callTool({ name: 'get_cross_project_costs', arguments: { provider: 'gcp' } });
+    const content = result.content as Array<{ type: string; text: string }>;
+    const text = content[0]?.text ?? '';
+    if (result.isError) {
+      expect(text).toMatch(/not configured|No GCP projects/);
+    } else {
+      expect(text).toContain('$');
+    }
   });
 
   // --- Prompts ---
