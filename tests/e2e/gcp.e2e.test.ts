@@ -1,6 +1,6 @@
-import { describe, test, expect, beforeAll, afterAll } from 'vitest';
+import { describe, test, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { setupE2EClient, callTool, callToolExpectError } from './helpers.js';
+import { setupE2EClient, callTool, callToolExpectError, pace } from './helpers.js';
 
 const RUN_E2E = process.env.E2E_GCP === 'true';
 
@@ -16,6 +16,19 @@ describe.skipIf(!RUN_E2E)('GCP E2E', () => {
 
   afterAll(async () => {
     await cleanup?.();
+  });
+
+  afterEach(async () => {
+    await pace();
+  });
+
+  // --- Utility ---
+
+  test('get_current_date returns valid dates', async () => {
+    const text = await callTool(client, 'get_current_date');
+    const today = new Date().toISOString().split('T')[0]!;
+    expect(text).toContain(today);
+    expect(text).toContain('Current month');
   });
 
   // --- Cost Analysis ---
