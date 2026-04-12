@@ -118,7 +118,7 @@ GCP requires a BigQuery billing export table. Find your table name in **GCP Cons
 
 ## Tools
 
-All tools accept a `provider` parameter (`azure` or `gcp`, default: `azure`).
+All tools accept a `provider` parameter (`azure` or `gcp`). The default is auto-detected based on which providers are configured.
 
 **Cost Analysis**
 

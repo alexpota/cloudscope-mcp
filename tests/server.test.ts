@@ -8,20 +8,20 @@ import { z } from 'zod';
 
 describe('Tool input schema validation', () => {
   const costSummarySchema = z.object({
-    provider: z.literal('azure'),
+    provider: z.enum(['azure', 'gcp']).default('azure'),
     start_date: z.string(),
     end_date: z.string(),
     group_by: z.enum(['service', 'resource_group', 'tag', 'region']).default('service'),
   });
 
   const anomaliesSchema = z.object({
-    provider: z.literal('azure'),
+    provider: z.enum(['azure', 'gcp']).default('azure'),
     days: z.number().default(7),
     threshold: z.number().default(20),
   });
 
   const forecastSchema = z.object({
-    provider: z.literal('azure'),
+    provider: z.enum(['azure', 'gcp']).default('azure'),
     days: z.number().default(30),
   });
 
@@ -35,13 +35,13 @@ describe('Tool input schema validation', () => {
       expect(result.success).toBe(false);
     });
 
-    it('rejects provider=gcp', () => {
+    it('accepts provider=gcp', () => {
       const result = costSummarySchema.safeParse({
         provider: 'gcp',
         start_date: '2026-03-01',
         end_date: '2026-03-31',
       });
-      expect(result.success).toBe(false);
+      expect(result.success).toBe(true);
     });
 
     it('rejects empty provider', () => {
@@ -65,12 +65,15 @@ describe('Tool input schema validation', () => {
   });
 
   describe('missing required fields', () => {
-    it('rejects missing provider', () => {
+    it('defaults provider when omitted', () => {
       const result = costSummarySchema.safeParse({
         start_date: '2026-03-01',
         end_date: '2026-03-31',
       });
-      expect(result.success).toBe(false);
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.provider).toBe('azure');
+      }
     });
 
     it('rejects missing start_date', () => {
