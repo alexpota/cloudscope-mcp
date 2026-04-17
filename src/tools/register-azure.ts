@@ -5,6 +5,7 @@ import type { AzureCostClient } from '../providers/azure/client.js';
 import { handleListSubscriptions } from './list-subscriptions.js';
 import { handleCrossSubscriptionCosts } from './cross-subscription-costs.js';
 import { toolError } from './types.js';
+import { TOOL_ANNOTATIONS_READ_ONLY } from '../constants.js';
 
 export function registerAzureTools(
   server: McpServer,
@@ -14,6 +15,7 @@ export function registerAzureTools(
     'get_cross_subscription_costs',
     {
       title: 'Cross-Subscription Cost Summary',
+      annotations: TOOL_ANNOTATIONS_READ_ONLY,
       description:
         'Returns a combined cost breakdown across multiple Azure subscriptions sorted by total spend. Each subscription shows its name, total cost in USD, and percentage of the combined total. Handles partial failures gracefully — if some subscriptions are inaccessible, returns results for the rest with a warning. Use this when the user asks about costs across all subscriptions, wants to compare subscription spending, or needs an organization-wide cost overview.',
       inputSchema: {
@@ -52,6 +54,7 @@ export function registerAzureTools(
     'list_subscriptions',
     {
       title: 'List Azure Subscriptions',
+      annotations: TOOL_ANNOTATIONS_READ_ONLY,
       description:
         'Returns all Azure subscriptions the current credential can access, with name, ID, and state. Shows which subscription is currently active. Use this when the user has multiple subscriptions and wants to see which ones are available, or to confirm which subscription is being queried.',
       inputSchema: {

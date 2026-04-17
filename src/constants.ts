@@ -4,6 +4,21 @@ declare const __PKG_VERSION__: string;
 export const PACKAGE_NAME = 'cloudscope-mcp';
 export const PACKAGE_VERSION: string = __PKG_VERSION__;
 
+// Tool annotations
+export const TOOL_ANNOTATIONS_READ_ONLY = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: true,
+} as const;
+
+export const TOOL_ANNOTATIONS_LOCAL = {
+  readOnlyHint: true,
+  destructiveHint: false,
+  idempotentHint: true,
+  openWorldHint: false,
+} as const;
+
 // Tool defaults
 export const DEFAULT_ANOMALY_DAYS = 7;
 export const DEFAULT_ANOMALY_THRESHOLD = 20;
