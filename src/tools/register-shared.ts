@@ -18,6 +18,8 @@ import {
   DEFAULT_FORECAST_DAYS,
   DEFAULT_TOP_RESOURCES_LIMIT,
   DEFAULT_TOP_RESOURCES_DAYS,
+  TOOL_ANNOTATIONS_READ_ONLY,
+  TOOL_ANNOTATIONS_LOCAL,
 } from '../constants.js';
 
 export function registerSharedTools(
@@ -31,12 +33,7 @@ export function registerSharedTools(
     'get_cost_summary',
     {
       title: 'Cloud Cost Summary',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
+      annotations: TOOL_ANNOTATIONS_READ_ONLY,
       description:
         'Returns a cost breakdown for a date range grouped by service, resource group, tag, or region. Defaults to current month if dates are omitted. Output includes a sorted table with each group name, cost in USD, and percentage of total. Includes a total row, daily average, and collapses groups beyond the top 10 into an "Other" row. Returns an error if the date range is invalid. Use this when the user asks "how much am I spending", "what costs the most", "show me my cloud bill", or wants a spending overview.',
       inputSchema: {
@@ -59,12 +56,7 @@ export function registerSharedTools(
     'detect_anomalies',
     {
       title: 'Detect Cost Anomalies',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
+      annotations: TOOL_ANNOTATIONS_READ_ONLY,
       description:
         'Compares daily spending over the last N days against the prior N days to find cost spikes. Returns a list of services where spending increased above the threshold percentage, sorted by increase amount. Each entry includes service name, previous cost, current cost, percentage change, and absolute change in USD. Returns an empty list if no anomalies found. Use this when the user asks about unexpected cost increases, billing surprises, or wants to know if anything changed recently.',
       inputSchema: {
@@ -86,12 +78,7 @@ export function registerSharedTools(
     'list_recommendations',
     {
       title: 'Cost Optimization Recommendations',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
+      annotations: TOOL_ANNOTATIONS_READ_ONLY,
       description:
         'Fetches cost-saving recommendations filtered by category. Returns a list of recommendations each containing: title, category, impact level (high/medium/low), estimated annual savings in USD, affected resource ID, and a short description of the suggested action. Returns an empty list if no recommendations exist for the selected category. Use this when the user wants to reduce costs, find waste, or optimize resource usage.',
       inputSchema: {
@@ -109,12 +96,7 @@ export function registerSharedTools(
     'get_cost_forecast',
     {
       title: 'Cost Forecast',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
+      annotations: TOOL_ANNOTATIONS_READ_ONLY,
       description:
         'Projects future cloud spending for the next N days using a linear trend based on the last 30 days of actual costs. Returns the forecast period dates, projected total cost in USD, average daily projected cost, and the confidence basis (number of historical days used). Use this when the user asks "how much will I spend this month", wants to predict upcoming bills, or needs to plan budgets. Returns an error if insufficient historical data exists.',
       inputSchema: {
@@ -132,12 +114,7 @@ export function registerSharedTools(
     'check_budgets',
     {
       title: 'Budget Status',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
+      annotations: TOOL_ANNOTATIONS_READ_ONLY,
       description:
         'Check budget status: current spend vs limit, percentage used, forecast, and overage risk. For GCP, requires GCP_BILLING_ACCOUNT_ID to be set.',
       inputSchema: {
@@ -151,12 +128,7 @@ export function registerSharedTools(
     'compare_periods',
     {
       title: 'Compare Cost Periods',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
+      annotations: TOOL_ANNOTATIONS_READ_ONLY,
       description:
         'Compare costs between two date ranges, showing per-service absolute and percentage changes.',
       inputSchema: {
@@ -178,12 +150,7 @@ export function registerSharedTools(
     'top_spending_resources',
     {
       title: 'Top Spending Resources',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
+      annotations: TOOL_ANNOTATIONS_READ_ONLY,
       description:
         'Find the N most expensive individual resources over a time period. On GCP, requires the detailed billing export for resource-level data.',
       inputSchema: {
@@ -205,12 +172,7 @@ export function registerSharedTools(
     'get_cost_by_tag',
     {
       title: 'Cost by Tag',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
+      annotations: TOOL_ANNOTATIONS_READ_ONLY,
       description:
         'Breaks down costs by a specific tag or label key such as team, environment, or project. Returns a sorted table with each tag value, cost in USD, and percentage of total. Includes a total row and daily average. Returns an error if the date range is invalid or no tagged costs exist. Use this when the user asks about costs per team, per environment, cost allocation, chargeback, or wants to understand spending by any custom tag or label.',
       inputSchema: {
@@ -235,12 +197,7 @@ export function registerSharedTools(
     'find_idle_resources',
     {
       title: 'Find Idle Resources',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
+      annotations: TOOL_ANNOTATIONS_READ_ONLY,
       description:
         'Finds cloud resources that are provisioned but not actively used — unattached disks, orphaned network interfaces, unused IPs, idle VMs, and empty compute plans. Returns each resource with its name, type, resource group/project, reason it is idle, and estimated monthly cost in USD. Returns an empty list if no idle resources are found. Use this when the user asks about waste, idle or unused resources, cleanup opportunities, or wants to find resources to delete to reduce costs.',
       inputSchema: {
@@ -254,12 +211,7 @@ export function registerSharedTools(
     'find_untagged_resources',
     {
       title: 'Find Untagged Resources',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: true,
-      },
+      annotations: TOOL_ANNOTATIONS_READ_ONLY,
       description:
         'Finds resources that have no tags or labels applied. Returns each resource with its name, type, resource group/project, and location. Untagged resources cannot be attributed to teams or projects, making cost allocation and chargeback impossible. Returns an empty list if all resources are tagged. Use this when the user asks about tagging compliance, governance, cost attribution gaps, or wants to identify resources that need tags or labels.',
       inputSchema: {
@@ -273,12 +225,7 @@ export function registerSharedTools(
     'get_current_date',
     {
       title: 'Current Date',
-      annotations: {
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
+      annotations: TOOL_ANNOTATIONS_LOCAL,
       description:
         "Returns today's date and the start/end of current and previous months in YYYY-MM-DD format",
       inputSchema: {},
