@@ -86,7 +86,7 @@
     "@azure/arm-resources-subscriptions": "^2.1.0",
     "@azure/identity": "^4.0.0",
     "@google-cloud/asset": "^6.3.1",
-    "@google-cloud/bigquery": "^8.1.1",
+    "@google-cloud/bigquery": "^8.3.0",
     "@google-cloud/billing-budgets": "^6.1.1",
     "@google-cloud/compute": "^6.9.0",
     "@google-cloud/recommender": "^7.2.1",
@@ -96,12 +96,12 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.5.2",
-    "eslint": "^10.2.0",
-    "prettier": "^3.8.1",
+    "@types/node": "^25.6.0",
+    "eslint": "^10.2.1",
+    "prettier": "^3.8.3",
     "tsup": "^8.5.1",
     "typescript": "^5.7.0",
-    "typescript-eslint": "^8.58.0",
+    "typescript-eslint": "^8.59.1",
     "vitest": "^3.0.0"
   }
 }
