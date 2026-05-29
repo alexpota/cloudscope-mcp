@@ -131,6 +131,70 @@ describe('registerPrompts', () => {
     });
   });
 
+  describe('new prompt pattern: TL;DR + explicit tool ordering', () => {
+    const textFor = (name: string, args: Record<string, string> = {}): string => {
+      const result = handlerFor(name)(args);
+      return result.messages[0]?.content.text ?? '';
+    };
+
+    it.each([
+      ['monthly-cost-review', {}],
+      ['waste-audit', {}],
+      ['cost-spike-investigation', {}],
+      ['executive-summary', {}],
+      ['chargeback-report', { tag_key: 'team' }],
+    ])('%s starts its output spec with a "## TL;DR" heading', (name, args) => {
+      expect(textFor(name, args)).toContain('## TL;DR');
+    });
+
+    it.each([
+      ['monthly-cost-review', {}],
+      ['waste-audit', {}],
+      ['cost-spike-investigation', {}],
+      ['executive-summary', {}],
+      ['chargeback-report', { tag_key: 'team' }],
+    ])('%s lists tool calls in explicit "Step 1:" form', (name, args) => {
+      expect(textFor(name, args)).toContain('Step 1:');
+    });
+
+    it.each([
+      ['monthly-cost-review', {}],
+      ['cost-spike-investigation', {}],
+    ])('%s calls compare_periods (not compare_costs)', (name, args) => {
+      const text = textFor(name, args);
+      expect(text).toContain('compare_periods');
+      expect(text).not.toContain('compare_costs');
+    });
+
+    it.each([
+      ['monthly-cost-review', {}],
+      ['waste-audit', {}],
+      ['cost-spike-investigation', {}],
+    ])('%s calls top_spending_resources (not get_top_spenders)', (name, args) => {
+      const text = textFor(name, args);
+      expect(text).toContain('top_spending_resources');
+      expect(text).not.toContain('get_top_spenders');
+    });
+
+    it('monthly-cost-review enumerates all 8 mandated steps in order', () => {
+      const text = textFor('monthly-cost-review');
+      const positions = [
+        'get_current_date',
+        'get_cost_summary',
+        'compare_periods',
+        'detect_anomalies',
+        'top_spending_resources',
+        'check_budgets',
+        'get_cost_forecast',
+        'find_idle_resources',
+      ].map((tool) => text.indexOf(tool));
+      expect(positions.every((p) => p >= 0)).toBe(true);
+      for (let i = 1; i < positions.length; i++) {
+        expect(positions[i]).toBeGreaterThan(positions[i - 1] as number);
+      }
+    });
+  });
+
   describe('provider-aware prompts', () => {
     it.each([
       ['monthly-cost-review'],
@@ -173,6 +237,17 @@ describe('registerPrompts', () => {
     it('executive-summary declares provider argument', () => {
       const config = configFor('executive-summary');
       expect(config.argsSchema).toHaveProperty('provider');
+    });
+
+    it('executive-summary defaults to Azure language', () => {
+      const result = handlerFor('executive-summary')({});
+      expect(result.messages[0]?.content.text).toContain('Azure subscription');
+    });
+
+    it('executive-summary uses GCP language when provider is gcp', () => {
+      const result = handlerFor('executive-summary')({ provider: 'gcp' });
+      expect(result.messages[0]?.content.text).toContain('GCP project');
+      expect(result.messages[0]?.content.text).not.toContain('Azure subscription');
     });
   });
 });

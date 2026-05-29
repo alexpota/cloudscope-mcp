@@ -1,6 +1,6 @@
 {
   "name": "cloudscope-mcp",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "mcpName": "io.github.alexpota/cloudscope",
   "description": "Multi-cloud cost management MCP server (Azure + GCP): spending, forecasts, anomalies, budgets, idle resources, tags.",
   "type": "module",
