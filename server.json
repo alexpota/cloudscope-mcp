@@ -6,13 +6,13 @@
     "url": "https://github.com/alexpota/cloudscope-mcp",
     "source": "github"
   },
-  "version": "0.3.2",
+  "version": "0.3.3",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "cloudscope-mcp",
-      "version": "0.3.2",
+      "version": "0.3.3",
       "transport": {
         "type": "stdio"
       },
@@ -54,6 +54,12 @@
           "isSecret": false
         },
         {
+          "name": "GCP_PROJECT_ID",
+          "description": "Override GCP project ID if the billing dataset lives in a different project than GOOGLE_CLOUD_PROJECT.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
           "name": "GCP_BILLING_ACCOUNT_ID",
           "description": "GCP billing account ID (format: XXXXXX-XXXXXX-XXXXXX). Optional; needed only for budget monitoring.",
           "isRequired": false,
@@ -63,7 +69,7 @@
           "name": "GOOGLE_APPLICATION_CREDENTIALS",
           "description": "Path to GCP service account JSON key file. Optional; falls back to Application Default Credentials (gcloud auth).",
           "isRequired": false,
-          "isSecret": false
+          "isSecret": true
         }
       ]
     }

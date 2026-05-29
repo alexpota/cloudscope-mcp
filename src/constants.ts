@@ -32,9 +32,25 @@ export const MAX_CACHE_ENTRIES = 100;
 export const DATE_FORMAT_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 export const HTTP_STATUS_TOO_MANY_REQUESTS = 429;
+export const HTTP_STATUS_SERVICE_UNAVAILABLE = 503;
 
 // Azure SDK surfaces 429 as either `statusCode: 429` or these `code` values.
 export const AZURE_THROTTLE_ERROR_CODES: readonly string[] = ['TooManyRequests', '429'];
+
+// Transient failure shapes treated as retryable, kept SEPARATE from throttling
+// because the semantics differ (throttling = "slow down"; transient = "Azure
+// hiccuped, try again"). The Azure SDK's defaultRetryPolicy already retries
+// most of these — 5xx (except 501/505), 408, and system errors (ETIMEDOUT,
+// ESOCKETTIMEDOUT, ECONNREFUSED, ECONNRESET, ENOENT, ENOTFOUND) — up to its
+// internal retry cap. Listing them here adds defense-in-depth for transient
+// bursts that outlast the SDK's window. AbortError is the genuine gap: the
+// SDK does not retry upstream-cancelled operations, so we must.
+export const AZURE_TRANSIENT_ERROR_CODES: readonly string[] = [
+  'ServiceUnavailable',
+  'AbortError',
+  'ECONNRESET',
+  'ETIMEDOUT',
+];
 
 // Cost Management API returns bare 429s (no Retry-After) under burst load,
 // which the Azure SDK's default retry policy does not handle. We compensate

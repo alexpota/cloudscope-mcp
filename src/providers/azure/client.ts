@@ -49,7 +49,7 @@ import {
 } from '../../constants.js';
 import { Cache } from '../../utils/cache.js';
 import { createRateLimiter, withRetry, type RateLimiter } from '../../utils/rate-limit.js';
-import { isAzureThrottlingError } from './throttling.js';
+import { isAzureThrottlingError, isAzureTransientError } from './throttling.js';
 
 function requireColumn(columns: Array<{ name?: string }>, name: string): number {
   const idx = columns.findIndex((c) => c.name === name);
@@ -110,10 +110,15 @@ export class AzureCostClient implements CloudCostProvider {
     return AzureCostClient.GROUPING_MAP[groupBy];
   }
 
-  /** Serializes concurrent calls and retries on 429 with bounded backoff. */
+  /**
+   * Serializes concurrent calls and retries on transient/throttling failures
+   * with bounded backoff. Both classes use the same retry budget — they're
+   * classified separately for semantic clarity, not to give one class more
+   * attempts than the other.
+   */
   private async callAzure<T>(fn: () => Promise<T>): Promise<T> {
     return withRetry(() => this.rateLimiter.run(fn), {
-      isRetryable: isAzureThrottlingError,
+      isRetryable: (err) => isAzureThrottlingError(err) || isAzureTransientError(err),
       maxAttempts: AZURE_RETRY_MAX_ATTEMPTS,
       baseDelayMs: AZURE_RETRY_BASE_DELAY_MS,
       maxDelayMs: AZURE_RETRY_MAX_DELAY_MS,
