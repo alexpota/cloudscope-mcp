@@ -3,6 +3,11 @@ name: Publish to npm and MCP Registry
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to publish (e.g. v0.3.3)'
+        required: true
 
 jobs:
   publish:
@@ -20,6 +25,13 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          # On `release: published`, github.event.release.tag_name is the
+          # published tag (e.g. v0.3.3). On `workflow_dispatch`, that field is
+          # null and we fall through to the required `tag` input. Without this,
+          # a manual dispatch would build main HEAD and publish it under the
+          # dispatched tag identity — the wrong-code-published failure mode.
+          ref: ${{ github.event.release.tag_name || inputs.tag }}
 
       - name: Setup Node.js
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
@@ -55,7 +67,16 @@ jobs:
         run: npm pack --dry-run
 
       - name: Publish to npm
-        run: npm publish --provenance --access public
+        # Idempotent: skip if this version is already on npm. Required so a
+        # mid-pipeline failure (e.g. broken MCP Registry step) can be cleanly
+        # re-run without npm rejecting the duplicate publish.
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "cloudscope-mcp@${VERSION}" version &>/dev/null; then
+            echo "::notice::cloudscope-mcp@${VERSION} already on npm — skipping"
+          else
+            npm publish --provenance --access public
+          fi
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -63,9 +84,12 @@ jobs:
         timeout-minutes: 5
         # Pinned version + SHA-256 of the linux_amd64 tarball.
         # Bump both together when upgrading mcp-publisher.
+        # Floor: v1.7.6 (first release with the per-deployment OIDC audience
+        # binding from modelcontextprotocol/registry PR #1229). Older versions
+        # send the legacy `mcp-registry` audience and fail against production.
         run: |
-          VERSION=v1.5.0
-          EXPECTED_SHA=79bbb73ba048c5906034f73ef6286d7763bd53cf368ea0b358fc593ed360cbd5
+          VERSION=v1.7.9
+          EXPECTED_SHA=ab128162b0616090b47cf245afe0a23f3ef08936fdce19074f5ba0a4469281ac
           TARBALL=mcp-publisher_linux_amd64.tar.gz
           curl -fsSL -O "https://github.com/modelcontextprotocol/registry/releases/download/${VERSION}/${TARBALL}"
           echo "${EXPECTED_SHA}  ${TARBALL}" | sha256sum -c -
@@ -78,4 +102,15 @@ jobs:
 
       - name: Publish to MCP Registry
         timeout-minutes: 5
-        run: mcp-publisher publish
+        # Idempotent: skip if this version is already on the registry. Uses the
+        # per-server /versions endpoint (unpaginated, exhaustive) rather than
+        # the paginated /servers?search= endpoint.
+        run: |
+          SERVER=io.github.alexpota%2Fcloudscope
+          VERSION=$(node -p "require('./package.json').version")
+          if curl -fsS "https://registry.modelcontextprotocol.io/v0/servers/${SERVER}/versions" \
+             | jq -e --arg v "$VERSION" '.servers[]? | select(.server.version == $v)' >/dev/null; then
+            echo "::notice::${SERVER}@${VERSION} already on registry — skipping"
+          else
+            mcp-publisher publish
+          fi
