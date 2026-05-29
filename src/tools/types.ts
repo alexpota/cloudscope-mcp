@@ -30,9 +30,13 @@ export async function withProvider(
   }
   try {
     return await handler(provider);
-  } catch {
+  } catch (err) {
+    // stderr is operator-visible and never reaches the JSON-RPC stdio channel.
+    // The user-facing message intentionally stays generic so raw Azure payloads
+    // (GUIDs, internal endpoints, principal names) don't leak to the LLM client.
+    console.error(`[${providerName}] request failed:`, err);
     return toolError(
-      new Error(`${providerName} request failed. Check provider credentials and try again.`),
+      new Error(`${providerName} request failed. Please try again.`),
     );
   }
 }

@@ -20,10 +20,11 @@ export async function handleDetectAnomalies(
     const previousEnd = currentStart;
     const previousStart = toDateString(new Date(now.getTime() - input.days * 2 * MS_PER_DAY));
 
-    const [current, previous] = await Promise.all([
-      provider.queryCosts(currentStart, currentEnd, 'service'),
-      provider.queryCosts(previousStart, previousEnd, 'service'),
-    ]);
+    // Sequential, not Promise.all: firing both queries at once burst-loads
+    // Azure CMAPI's per-tenant budget. Costs ~1 extra round-trip in latency
+    // but removes the simultaneous-burst failure class entirely.
+    const current = await provider.queryCosts(currentStart, currentEnd, 'service');
+    const previous = await provider.queryCosts(previousStart, previousEnd, 'service');
 
     const previousMap = new Map(previous.rows.map((r) => [r.name, r.cost]));
 
